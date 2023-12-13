@@ -1,8 +1,8 @@
 ---
-name: slurm
+name: Slurm
 
 on: [push]
-  jobs:
+jobs:
     install_miniconda:
       name: Install miniconda
       runs-on: ubuntu-latest
