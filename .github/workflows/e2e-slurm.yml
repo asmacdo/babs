@@ -3,3 +3,9 @@
 #       - TODO was new image built?
 #       - TODO set up build automation for slurm upstream https://github.com/giovtorres/docker-centos7-slurm/issues/53
 #
+- install python
+- execute ./tests/e2e-slurm.sh
+- execute ./tests/e2e-slurm.sh
+- log output 
+- check error code
+
