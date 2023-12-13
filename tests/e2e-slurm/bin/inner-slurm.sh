@@ -9,7 +9,7 @@ RUNNING_SLURM_CONTAINER_NAME=${RUNNING_SLURM_CONTAINER_NAME:=slurm}
 cmd="${0##*/}"
 topd=$(readlink -f "$0"  | xargs dirname | xargs dirname)
 
-# This doesnt work because BABs squeue output parsing will fail TODO  file issue
+# This doesn't work because BABs squeue output parsing will fail TODO  file issue
 # echo "Delegating inside: topd=$topd cmd=$cmd"
 
 # --user $USER
