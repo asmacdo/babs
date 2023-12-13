@@ -1,11 +1,36 @@
+---
 # Slurm container:
 #   - my fork or official? IIRC I fixed a bug upstream but there was no build.
 #       - TODO was new image built?
 #       - TODO set up build automation for slurm upstream https://github.com/giovtorres/docker-centos7-slurm/issues/53
 #
-- install python
-- execute ./tests/e2e-slurm.sh
-- execute ./tests/e2e-slurm.sh
-- log output 
-- check error code
+# ref: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow
+# https://github.com/marketplace/actions/setup-miniconda#example-1-basic-usage
+name: e2e Integration Tests with SLURM
+
+on: [push, pull_request]
+  jobs:
+    install_miniconda:
+      name: Install miniconda
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+      steps:
+        - uses: conda-incubator/setup-miniconda@v3
+          with:
+            auto-update-conda: true
+            python-version: 3.9
+        - name: Conda info
+          shell: bash -el {0}
+          run: conda info
+        - name: Conda list
+          shell: pwsh
+          run: conda list
+
+
+
+            # - execute ./tests/e2e-slurm.sh
+            # - execute ./tests/e2e-slurm.sh
+            # - log output 
+            # - check error code
 
