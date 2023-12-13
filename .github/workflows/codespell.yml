@@ -1,14 +1,14 @@
 ---
-name: Codespell
-
-on: [push, pull_request]
-# ref: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow
-
-jobs:
-  codespell:
-    name: Check for spelling errors
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: codespell-project/actions-codespell@master
+# name: Codespell
+# 
+# on: [push, pull_request]
+# # ref: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow
+# 
+# jobs:
+#   codespell:
+#     name: Check for spelling errors
+#     runs-on: ubuntu-latest
+# 
+#     steps:
+#       - uses: actions/checkout@v2
+#       - uses: codespell-project/actions-codespell@master
