@@ -8,7 +8,7 @@
 # https://github.com/marketplace/actions/setup-miniconda#example-1-basic-usage
 name: e2e Integration Tests with SLURM
 
-on: [push, pull_request]
+on: [push]
   jobs:
     install_miniconda:
       name: Install miniconda
