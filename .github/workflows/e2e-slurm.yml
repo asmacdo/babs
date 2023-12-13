@@ -1,29 +1,5 @@
 # Slurm container:
 #   - my fork or official? IIRC I fixed a bug upstream but there was no build.
 #       - TODO was new image built?
-#       - TODO do we need to set up build automation for slurm
-
--------
-
-- name: install babs and dependencies
-
--------
-
-- name: pull container
-
-- name: start slurm
-
--------
-
-- name: babs-init
-
-- name: check output
-
-
--------
-- name: babs-check-status-nojob
-
-- name: babs-check-status-job
-
-
-
+#       - TODO set up build automation for slurm upstream https://github.com/giovtorres/docker-centos7-slurm/issues/53
+#
