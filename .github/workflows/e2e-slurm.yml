@@ -1,5 +1,5 @@
 ---
-name: e2e Integration Tests with SLURM
+name: slurm
 
 on: [push]
   jobs:
