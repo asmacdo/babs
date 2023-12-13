@@ -16,7 +16,7 @@ jobs:
           shell: bash -el {0}
           run: conda info
         - name: Create Babs En
-          run: conda create -n babs python=3.9.16 && conda activate babs
+          run: conda create -n babs python=3.9.16 && conda init bash && conda activate babs
         - name: Conda list
           shell: pwsh
           run: conda list

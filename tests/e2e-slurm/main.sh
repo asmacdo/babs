@@ -1,5 +1,8 @@
 set -ex
 
+# Expects: Conda env to be activated
+# Expects: Babs to be installed
+#
 # WIP-NOT-WORKING
 # Reminder :Z for selinux
 
@@ -18,7 +21,7 @@ podman run -it --rm \
 		-v ${PWD}:${PWD}:Z \
     -v ${MINICONDA_PATH}:${MINICONDA_PATH} \ # This needs to be identical, conda expects? is that true? File RFE upstream?
     # --privileged \ # TODO WHY
-  # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO 
+  # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
 	# 	-e "UID=$$(id -u)" \ TODO learn wtf once and for all
 	# 	-e "GID=$$(id -g)" \
 	# 	-e "USER=$$USER" \
