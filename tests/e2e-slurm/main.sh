@@ -51,6 +51,7 @@ max_retries=10
 # Delay in seconds
 delay=10
 
+echo "Wait for Trying sacct until it succeeds"
 set +e # We need to check the error code and allow failurs until slurm has started up
 export PATH=${PWD}/tests/e2e-slurm/bin/:${PATH}
 for ((i=1; i<=max_retries; i++)); do
@@ -72,7 +73,11 @@ for ((i=1; i<=max_retries; i++)); do
 done
 set -e
 #
-podman exec slurm babs-tests.sh
+echo "Where are we"
+echo $(pwd)
+echo "ls"
+ls
+podman exec slurm tests/e2e-slurm/babs-tests.sh
 
 echo "--------------------------"
 echo "     HUZZZZZZAHHHHHH!!!!!!"
