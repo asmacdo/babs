@@ -75,14 +75,36 @@ done
 set -e
 
 
-pwd
+
 mkdir $BABS_PROJECT
 pushd $BABS_PROJECT
+
+# Populate input data (Divergent from tuturial, bc https://github.com/datalad/datalad-osf/issues/191
+datalad install ///dbic/QA
+
+# TODO ----------------------------------------------------
+# this can be cut if we pull the sing container down instead of build
+apt-get install -y apptainer
+singularity build \
+    toybidsapp-0.0.7.sif \
+    docker://pennlinc/toy_bids_app:0.0.7
+datalad create -D "toy BIDS App" toybidsapp-container
+pushd toybidsapp-container
+datalad containers-add \
+    --url ${PWD}/../toybidsapp-0.0.7.sif \
+    toybidsapp-0-0-7
+popd
+rm -f toybidsapp-0.0.7.sif
+# end TODO ----------------------------------------------------
+#
+
+
+
 # TODO --where_project must be abspath file issue for relative path
 babs-init \
     --where_project ${PWD} \
     --project_name test_project \
-    --input BIDS https://osf.io/w2nu3/ \
+    --input BIDS ${PWD}/QA \
     --container_ds ${PWD}/toybidsapp-container \
     --container_name toybidsapp-0-0-7 \
     --container_config_yaml_file ${PWD}/config_toybidsapp.yaml \
