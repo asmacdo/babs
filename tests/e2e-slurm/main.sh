@@ -15,17 +15,17 @@ FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 
 # START SLURM -------------------------------
 # TODO dev artifact: rm -it
+	    # -h slurmctl  \ # TODO WHY
+	    # --cap-add sys_admin \ # TODO WHY
+	    # --privileged \ # TODO WHY
+	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
+	    # -e "UID=$$(id -u)" \ TODO learn wtf once and for all
+	    # -e "GID=$$(id -g)" \
+	    # -e "USER=$$USER" \
 podman run -it --rm \
-		# -h slurmctl  \ # TODO WHY
-    # --cap-add sys_admin \ # TODO WHY
-		-v ${PWD}:${PWD}:Z \
-    -v ${MINICONDA_PATH}:${MINICONDA_PATH} \ # This needs to be identical, conda expects? is that true? File RFE upstream?
-    # --privileged \ # TODO WHY
-  # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
-	# 	-e "UID=$$(id -u)" \ TODO learn wtf once and for all
-	# 	-e "GID=$$(id -g)" \
-	# 	-e "USER=$$USER" \
-    ${FQDN_IMAGE}
+	    -v ${PWD}:${PWD}:Z \
+	    -v ${MINICONDA_PATH}:${MINICONDA_PATH} \ # This needs to be identical, conda expects? is that true? File RFE upstream?
+	    ${FQDN_IMAGE}
 
 export PATH=${PWD}/bin/:${PATH}
 

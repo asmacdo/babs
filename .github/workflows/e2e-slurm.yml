@@ -15,16 +15,18 @@ jobs:
             activate-environment: babs
             auto-update-conda: true
             python-version: 3.9
-        - name: Conda info
-          shell: bash -el {0}
-          run: conda info
-        - name: Conda list
-          shell: pwsh
-          run: conda list
+        # - name: Conda info
+        #   shell: bash -el {0}
+        #   run: conda info
+        # - name: Conda list
+        #   shell: pwsh
+        #   run: conda list
         - name: Install Babs
           shell: bash -el {0}
           run: ./hack/install-babs.sh
-
+        - name: Execute e2e with SLURM
+          shell: bash -el {0}
+          run: ./tests/e2e-slurm/main.sh
 
 
 # Slurm container:
