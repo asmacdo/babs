@@ -15,12 +15,9 @@ jobs:
             activate-environment: babs
             auto-update-conda: true
             python-version: 3.9
-        # - name: Conda info
-        #   shell: bash -el {0}
-        #   run: conda info
-        # - name: Conda list
-        #   shell: pwsh
-        #   run: conda list
+        - name: Conda info
+          shell: bash -el {0}
+          run: conda info
         - name: Install Babs
           shell: bash -el {0}
           run: ./hack/install-babs.sh
