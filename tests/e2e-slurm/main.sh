@@ -77,7 +77,7 @@ echo "Where are we"
 echo $(pwd)
 echo "ls"
 ls
-podman exec slurm tests/e2e-slurm/babs-tests.sh
+podman exec slurm ${PWD}/tests/e2e-slurm/babs-tests.sh
 
 echo "--------------------------"
 echo "     HUZZZZZZAHHHHHH!!!!!!"
