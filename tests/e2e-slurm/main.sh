@@ -84,7 +84,6 @@ datalad install ///dbic/QA
 
 # TODO ----------------------------------------------------
 # this can be cut if we pull the sing container down instead of build
-apt-get install -y apptainer
 singularity build \
     toybidsapp-0.0.7.sif \
     docker://pennlinc/toy_bids_app:0.0.7

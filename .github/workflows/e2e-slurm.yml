@@ -9,6 +9,10 @@ jobs:
       steps:
         - name: checkout our repo
           uses: actions/checkout@v4
+        - name: Install apptainer
+          uses: eWaterCycle/setup-apptainer@v2
+          with:
+            apptainer-version: 1.1.2
         - name: Install Conda
           uses: conda-incubator/setup-miniconda@v3
           with:
