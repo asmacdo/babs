@@ -23,6 +23,9 @@ cleanup () {
 	podman stop slurm
 }
 
+# TODO Can we autodetect this?
+MINICONDA_PATH=/usr/share/miniconda
+
 # START SLURM -------------------------------
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
 	    # -e "UID=$$(id -u)" \ TODO learn wtf once and for all
