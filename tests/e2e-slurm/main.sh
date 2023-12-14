@@ -6,9 +6,14 @@ set -ex
 # WIP-NOT-WORKING
 # Reminder :Z for selinux
 
+# TODO switch back to upstream after build
+# Currently using asmacdo, OpenSSL bump upstream, but no new docker build
+# https://github.com/giovtorres/docker-centos7-slurm/pull/49
 REGISTRY=docker.io
-HUBUSER=giovtorres
-REPO=docker-centos7-slurm
+HUBUSER=asmacdo
+# HUBUSER=giovtorres
+REPO=centos7-slurm
+# REPO=docker-centos7-slurm
 TAG=23.11.07 # TODO
 
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
@@ -21,9 +26,10 @@ FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 	    # -e "UID=$$(id -u)" \ TODO learn wtf once and for all
 	    # -e "GID=$$(id -g)" \
 	    # -e "USER=$$USER" \
+	    # MINICONDA_PATH needs to be identical in and out?, conda expects? is that true? File RFE upstream?
 podman run --rm \
 	    -v ${PWD}:${PWD}:Z \
-	    -v ${MINICONDA_PATH}:${MINICONDA_PATH}:Z \ # This needs to be identical, conda expects? is that true? File RFE upstream?
+	    -v ${MINICONDA_PATH}:${MINICONDA_PATH}:Z \
 	    ${FQDN_IMAGE}
 
 export PATH=${PWD}/bin/:${PATH}
