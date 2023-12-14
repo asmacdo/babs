@@ -71,15 +71,8 @@ for ((i=1; i<=max_retries; i++)); do
     fi
 done
 set -e
-
-# TODO babs-init
-
-# TODO: check file output of babs-init
-
-# TODO: babs-check-status-nojob
-
-# TODO: babs-check-status-job
-
+#
+podman exec slurm babs-tests.sh
 
 echo "--------------------------"
 echo "     HUZZZZZZAHHHHHH!!!!!!"
