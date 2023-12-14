@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 set -eu
 
 current_env=$(conda env list | grep '*' | awk '{print $1}')

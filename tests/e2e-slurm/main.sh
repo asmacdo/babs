@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 set -ex
 
 # Expects: Conda env to be activated
@@ -25,7 +27,7 @@ cleanup () {
 
 # TODO Can we autodetect this?
 MINICONDA_PATH=/usr/share/miniconda
-# MINICONDA_PATH=/home/austin/miniconda
+# MINICONDA_PATH=/home/austin/miniconda3
 
 # START SLURM -------------------------------
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO

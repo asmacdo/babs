@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set +e
 conda info
 echo "CONDA prior to activate $?"
