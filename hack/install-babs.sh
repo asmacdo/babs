@@ -13,7 +13,7 @@ echo "Success, we are in the babs conda env"
 git config --global user.name "GH Action"
 git config --global user.email "fake@example.com"
 
-conda install -c conda-forge datalad git git-annex
+conda install -c conda-forge datalad git git-annex -y
 pip install datalad_container
 # pip install datalad-osf
 pip install .

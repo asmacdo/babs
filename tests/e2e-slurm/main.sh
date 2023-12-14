@@ -20,22 +20,20 @@ TAG=23.11.07 # TODO
 
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 
+BABS_PROJECT=babs_test_project
+
 cleanup () {
 	echo "Shutting down slurm"
 	podman stop slurm
+	rm -rf $BABS_PROJECT
 }
 
 # TODO Can we autodetect this?
-MINICONDA_PATH=/usr/share/miniconda
-# MINICONDA_PATH=/home/austin/miniconda3
+MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
 
 # START SLURM -------------------------------
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
-	    # -e "UID=$$(id -u)" \ TODO learn wtf once and for all
-	    # -e "GID=$$(id -g)" \
-	    # -e "USER=$$USER" \
 	    # MINICONDA_PATH needs to be identical in and out?, conda expects? is that true? File RFE upstream?
-	# --cap-add sys_admin \
 podman run -d --rm \
 	--name slurm \
 	--hostname slurmctl  \
@@ -75,15 +73,37 @@ for ((i=1; i<=max_retries; i++)); do
     fi
 done
 set -e
+
+
+pwd
+mkdir $BABS_PROJECT
+pushd $BABS_PROJECT
+# TODO --where_project must be abspath file issue for relative path
+babs-init \
+    --where_project ${PWD} \
+    --project_name test_project \
+    --input BIDS https://osf.io/w2nu3/ \
+    --container_ds ${PWD}/toybidsapp-container \
+    --container_name toybidsapp-0-0-7 \
+    --container_config_yaml_file ${PWD}/config_toybidsapp.yaml \
+    --type_session multi-ses \
+    --type_system slurm
+
+
+# TODO: check file output of babs-init
+
+# TODO: babs-check-status-nojob
+
+# TODO: babs-check-status-job
+
+popd
+# /tests/e2e-slurm/babs-tests.sh
+# podman exec  \
+# 	-e MINICONDA_PATH=${MINICONDA_PATH} \
+# 	slurm \
+# 	${PWD}/tests/e2e-slurm/babs-tests.sh 
 #
-echo "Where are we"
-echo $(pwd)
-echo "ls"
-ls
-podman exec  \
-	-e MINICONDA_PATH=${MINICONDA_PATH} \
-	slurm \
-	${PWD}/tests/e2e-slurm/babs-tests.sh 
+
 
 echo "--------------------------"
 echo "     HUZZZZZZAHHHHHH!!!!!!"
