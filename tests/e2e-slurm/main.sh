@@ -14,7 +14,6 @@ TAG=23.11.07 # TODO
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 
 # START SLURM -------------------------------
-# TODO dev artifact: rm -it
 	    # -h slurmctl  \ # TODO WHY
 	    # --cap-add sys_admin \ # TODO WHY
 	    # --privileged \ # TODO WHY
@@ -22,12 +21,14 @@ FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 	    # -e "UID=$$(id -u)" \ TODO learn wtf once and for all
 	    # -e "GID=$$(id -g)" \
 	    # -e "USER=$$USER" \
-podman run -it --rm \
+podman run --rm \
 	    -v ${PWD}:${PWD}:Z \
-	    -v ${MINICONDA_PATH}:${MINICONDA_PATH} \ # This needs to be identical, conda expects? is that true? File RFE upstream?
+	    -v ${MINICONDA_PATH}:${MINICONDA_PATH}:Z \ # This needs to be identical, conda expects? is that true? File RFE upstream?
 	    ${FQDN_IMAGE}
 
 export PATH=${PWD}/bin/:${PATH}
+
+sacct
 
 # TODO babs-init
 
