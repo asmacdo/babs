@@ -25,6 +25,7 @@ cleanup () {
 
 # TODO Can we autodetect this?
 MINICONDA_PATH=/usr/share/miniconda
+# MINICONDA_PATH=/home/austin/miniconda
 
 # START SLURM -------------------------------
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
@@ -32,10 +33,10 @@ MINICONDA_PATH=/usr/share/miniconda
 	    # -e "GID=$$(id -g)" \
 	    # -e "USER=$$USER" \
 	    # MINICONDA_PATH needs to be identical in and out?, conda expects? is that true? File RFE upstream?
+	# --cap-add sys_admin \
 podman run -d --rm \
 	--name slurm \
 	--hostname slurmctl  \
-	--cap-add sys_admin \
 	--privileged \
 	-v ${PWD}:${PWD}:Z \
 	-v ${MINICONDA_PATH}:${MINICONDA_PATH}:Z \
