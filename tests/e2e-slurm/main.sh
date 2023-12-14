@@ -77,6 +77,7 @@ set -e
 
 
 mkdir $BABS_PROJECT
+cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT
 pushd $BABS_PROJECT
 
 # Populate input data (Divergent from tuturial, bc https://github.com/datalad/datalad-osf/issues/191
