@@ -111,6 +111,7 @@ babs-init \
     --type_session multi-ses \
     --type_system slurm
 
+babs-check-setup --project_root ${PWD}/test_project/ --job-test
 
 # TODO: check file output of babs-init
 
