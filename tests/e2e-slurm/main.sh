@@ -79,7 +79,8 @@ echo "Where are we"
 echo $(pwd)
 echo "ls"
 ls
-podman exec slurm ${PWD}/tests/e2e-slurm/babs-tests.sh
+podman exec slurm ${PWD}/tests/e2e-slurm/babs-tests.sh \
+	-e MINICONDA_PATH=${MINICONDA_PATH}
 
 echo "--------------------------"
 echo "     HUZZZZZZAHHHHHH!!!!!!"
