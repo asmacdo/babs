@@ -80,8 +80,10 @@ echo "Where are we"
 echo $(pwd)
 echo "ls"
 ls
-podman exec slurm ${PWD}/tests/e2e-slurm/babs-tests.sh \
-	-e MINICONDA_PATH=${MINICONDA_PATH}
+podman exec  \
+	-e MINICONDA_PATH=${MINICONDA_PATH} \
+	slurm \
+	${PWD}/tests/e2e-slurm/babs-tests.sh 
 
 echo "--------------------------"
 echo "     HUZZZZZZAHHHHHH!!!!!!"
