@@ -1,9 +1,10 @@
 #!/bin/bash
+set -u
 
 set +e
 conda info
 echo "CONDA prior to activate $?"
-./${MINICONDA_PATH}/bin/activate babs
+./$MINICONDA_PATH/bin/activate babs
 echo "CONDA post activate $?"
 set -e
 # TODO babs-init

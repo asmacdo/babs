@@ -54,10 +54,11 @@ max_retries=10
 delay=10
 
 echo "Wait for Trying sacct until it succeeds"
-set +e # We need to check the error code and allow failurs until slurm has started up
+set +e # We need to check the error code and allow failures until slurm has started up
 export PATH=${PWD}/tests/e2e-slurm/bin/:${PATH}
 for ((i=1; i<=max_retries; i++)); do
-	sacct
+	# Don't print confusing error messages, this is expected to fail a time or a few
+	sacct > /dev/null 2>&1
 
 	# Check if the command was successful
 	if [ $? -eq 0 ]; then
