@@ -19,6 +19,7 @@ REPO=centos7-slurm
 TAG=23.11.07 # TODO
 
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
+SLURMCMDLOG=/var/log/slurmcmd
 
 BABS_PROJECT=babs_test_project
 
@@ -26,9 +27,9 @@ cleanup () {
 	set +e
 	echo "Shutting down slurm"
 	podman stop slurm
-	rm -rf $BABS_PROJECT
 	echo "Slurm command output --------------------------------------"
-	cat slurmcmd.log
+	cat $SLURMCMDLOG
+	rm -rf $BABS_PROJECT
 }
 
 # TODO Can we autodetect this?
