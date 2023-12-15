@@ -26,6 +26,9 @@ cleanup () {
 	echo "Shutting down slurm"
 	podman stop slurm
 	rm -rf $BABS_PROJECT
+	echo "Slurm command output --------------------------------------"
+	cat slurmcmd.log
+
 }
 
 # TODO Can we autodetect this?
