@@ -19,7 +19,7 @@ REPO=centos7-slurm
 TAG=23.11.07 # TODO
 
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
-SLURMCMDLOG=/var/log/slurmcmd
+LOGPATH=/var/log/
 
 BABS_PROJECT=babs_test_project
 
@@ -28,12 +28,14 @@ cleanup () {
 	echo "Shutting down slurm"
 	podman stop slurm
 	echo "Slurm command output --------------------------------------"
-	cat $SLURMCMDLOG
+	cat $LOGPATH/*
 	rm -rf $BABS_PROJECT
 }
 
 # TODO Can we autodetect this?
 MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
+
+mkdir -p $LOGPATH
 
 # START SLURM -------------------------------
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
