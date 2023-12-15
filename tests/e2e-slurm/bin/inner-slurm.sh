@@ -12,6 +12,7 @@ topd=$(readlink -f "$0"  | xargs dirname | xargs dirname)
 # This doesn't work because BABs squeue output parsing will fail TODO  file issue
 # echo "Delegating inside: topd=$topd cmd=$cmd"
 
-# --user $USER
+# --user $USER 
+echo "$cmd $@" | tee slurmcmd.log
 podman exec -it  $RUNNING_SLURM_CONTAINER_NAME "$cmd" "$@" 2>&1 | tee slurmcmd.log
 

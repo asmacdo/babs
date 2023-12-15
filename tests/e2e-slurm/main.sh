@@ -38,13 +38,16 @@ MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
 	    # MINICONDA_PATH needs to be identical in and out?, conda expects? is that true? File RFE upstream?
 podman run -d --rm \
+	-e "UID=$$(id -u)" \
+	-e "GID=$$(id -g)" \
+	-e "USER=$$USER" \
 	--name slurm \
 	--hostname slurmctl  \
 	--privileged \
 	-v ${PWD}:${PWD}:Z \
 	-v ${MINICONDA_PATH}:${MINICONDA_PATH}:Z \
 	${FQDN_IMAGE} \
-	tail -f /dev/null # hack to keep it running TODO file issue
+	/bin/bash -c "groupadd --gid $$(id -u) $$USER && useradd --uid $$(id -u) --gid $$(id -u) $$USER && tail -f /dev/null" # TODO keep these logs?
 
 trap cleanup EXIT
 
@@ -127,7 +130,7 @@ popd
 # podman exec  \
 # 	-e MINICONDA_PATH=${MINICONDA_PATH} \
 # 	slurm \
-# 	${PWD}/tests/e2e-slurm/babs-tests.sh 
+# 	${PWD}/tests/e2e-slurm/babs-tests.sh
 #
 
 
