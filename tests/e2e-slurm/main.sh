@@ -23,12 +23,12 @@ FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 BABS_PROJECT=babs_test_project
 
 cleanup () {
+	set +e
 	echo "Shutting down slurm"
 	podman stop slurm
 	rm -rf $BABS_PROJECT
 	echo "Slurm command output --------------------------------------"
 	cat slurmcmd.log
-
 }
 
 # TODO Can we autodetect this?
