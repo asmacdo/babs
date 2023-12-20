@@ -22,22 +22,27 @@ FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 
 BABS_PROJECT=babs_test_project
 ROOT_DIR=${PWD}
-export LOGS_DIR=$ROOT_DIR/logs
+PROJECT_NAME=test_project
+
+# exported for use in inner-slurm.sh
+export LOGS_DIR=$ROOT_DIR/$BABS_PROJECT/ci-logs
 
 cleanup () {
 	set +e
 	echo "Shutting down slurm"
 	podman stop slurm
-	echo "Slurm command output --------------------------------------"
+	echo "Slurm shim output --------------------------------------"
 	cat $LOGS_DIR/*
 	# DANGER set -u NECESSARY
 	set -u
-	rm -rf $ROOT_DIR/$BABS_PROJECT
-	rm -rf $LOGS_DIR
+	echo "project logs: -----------------------"
+	cat $LOGS_DIR/*
+	# rm -rf $ROOT_DIR/$BABS_PROJECT
+	# rm -rf $LOGS_DIR
 }
 
 # TODO Can we autodetect this?
-MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
+export MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
 
 
 trap cleanup EXIT
@@ -51,6 +56,7 @@ podman run --rm -d \
 	-e "UID=$(id -u)" \
 	-e "GID=$(id -g)" \
 	-e "USER=$USER" \
+	-e "MINICONDA_PATH=${MINICONDA_PATH}" \
 	--name slurm \
 	--hostname slurmctl  \
 	--privileged \
@@ -117,7 +123,7 @@ rm -f toybidsapp-0.0.7.sif
 # TODO --where_project must be abspath file issue for relative path
 babs-init \
     --where_project ${PWD} \
-    --project_name test_project \
+    --project_name $PROJECT_NAME \
     --input BIDS ${PWD}/QA \
     --container_ds ${PWD}/toybidsapp-container \
     --container_name toybidsapp-0-0-7 \
@@ -125,6 +131,7 @@ babs-init \
     --type_session multi-ses \
     --type_system slurm
 
+echo "Miniconda path == $MINICONDA_PATH"
 babs-check-setup --project_root ${PWD}/test_project/ --job-test
 
 # TODO: check file output of babs-init

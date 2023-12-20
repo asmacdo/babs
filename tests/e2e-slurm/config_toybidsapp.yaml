@@ -13,9 +13,12 @@ cluster_resources:
     interpreting_shell: /bin/bash
     hard_memory_limit: 2G
 
+# when this is executed by babs-init it doesnt have MINICONDA_PATH set... even though it is set in the env that babs-init is running
 # Necessary commands to be run first:
 script_preamble: |
-    source ${CONDA_PREFIX}/bin/activate babs    # for Penn Med CUBIC cluster
+    export MINICONDA_PATH=/usr/share/miniconda/ && \
+    . "${MINICONDA_PATH}/etc/profile.d/conda.sh" && \
+    conda activate babs
 
 # Where to run the jobs:
-job_compute_space: "${CBICA_TMPDIR}"   # for Penn Med CUBIC cluster tmp space
+job_compute_space: "/tmp"
