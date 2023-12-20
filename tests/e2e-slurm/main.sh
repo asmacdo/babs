@@ -25,7 +25,7 @@ ROOT_DIR=${PWD}
 PROJECT_NAME=test_project
 
 # exported for use in inner-slurm.sh
-export LOGS_DIR=$ROOT_DIR/$BABS_PROJECT/ci-logs
+export LOGS_DIR=$ROOT_DIR/ci-logs
 
 cleanup () {
 	set +e
