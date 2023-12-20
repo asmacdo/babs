@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-set -ex
+set -eux
 
 # Expects: Conda env to be activated
 # Expects: Babs to be installed
@@ -19,40 +19,45 @@ REPO=centos7-slurm
 TAG=23.11.07 # TODO
 
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
-LOGPATH=/var/log/
 
 BABS_PROJECT=babs_test_project
+ROOT_DIR=${PWD}
+export LOGS_DIR=$ROOT_DIR/logs
 
 cleanup () {
 	set +e
 	echo "Shutting down slurm"
 	podman stop slurm
 	echo "Slurm command output --------------------------------------"
-	cat $LOGPATH/*
-	rm -rf $BABS_PROJECT
+	cat $LOGS_DIR/*
+	# DANGER set -u NECESSARY
+	set -u
+	rm -rf $ROOT_DIR/$BABS_PROJECT
+	rm -rf $LOGS_DIR
 }
 
 # TODO Can we autodetect this?
 MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
 
-mkdir -p $LOGPATH
+
+trap cleanup EXIT
+mkdir $LOGS_DIR
+
 
 # START SLURM -------------------------------
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
 	    # MINICONDA_PATH needs to be identical in and out?, conda expects? is that true? File RFE upstream?
-podman run -d --rm \
-	-e "UID=$$(id -u)" \
-	-e "GID=$$(id -g)" \
-	-e "USER=$$USER" \
+podman run --rm -d \
+	-e "UID=$(id -u)" \
+	-e "GID=$(id -g)" \
+	-e "USER=$USER" \
 	--name slurm \
 	--hostname slurmctl  \
 	--privileged \
 	-v ${PWD}:${PWD}:Z \
 	-v ${MINICONDA_PATH}:${MINICONDA_PATH}:Z \
 	${FQDN_IMAGE} \
-	/bin/bash -c "groupadd --gid $$(id -u) $$USER && useradd --uid $$(id -u) --gid $$(id -u) $$USER && tail -f /dev/null" # TODO keep these logs?
-
-trap cleanup EXIT
+	/bin/bash -c "groupadd --gid $(id -u) $USER && useradd --uid $(id -u) --gid $(id -u) $USER && tail -f > /dev/null" # TODO keep these logs?
 
 # Wait for slurm to be up
 # Number of retries
@@ -65,7 +70,9 @@ set +e # We need to check the error code and allow failures until slurm has star
 export PATH=${PWD}/tests/e2e-slurm/bin/:${PATH}
 for ((i=1; i<=max_retries; i++)); do
 	# Don't print confusing error messages, this is expected to fail a time or a few
-	sacct > /dev/null 2>&1
+	echo "$PATH"
+	sacct
+	# sacct > /dev/null 2>&1
 
 	# Check if the command was successful
 	if [ $? -eq 0 ]; then
@@ -82,8 +89,6 @@ for ((i=1; i<=max_retries; i++)); do
     fi
 done
 set -e
-
-
 
 mkdir $BABS_PROJECT
 cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT
