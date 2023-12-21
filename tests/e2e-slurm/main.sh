@@ -22,7 +22,9 @@ FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 
 BABS_PROJECT=babs_test_project
 # TODO: shellcheck check/proof this script
-ROOT_DIR="${PWD}"
+THIS_DIR="$(readlink -f "$0" | xargs dirname )"
+ROOT_DIR="$(echo "$THIS_DIR" | xargs dirname | xargs dirname)"
+
 PROJECT_NAME=test_project
 
 # exported for use in inner-slurm.sh
@@ -63,8 +65,9 @@ podman run --rm -d \
     -v "$HOME/.gitconfig:/home/$USER/.gitconfig:ro,Z" \
 	-v "${PWD}:${PWD}:Z" \
 	-v "${MINICONDA_PATH}:${MINICONDA_PATH}:Z" \
+    -v "${THIS_DIR}/setup_container.sh:/usr/local/sbin/setup_container.sh:ro,Z" \
 	"${FQDN_IMAGE}" \
-	/bin/bash -c "groupadd --gid $(id -u) $USER && useradd --uid $(id -u) --gid $(id -u) $USER && tail -f > /dev/null" # TODO keep these logs?
+	/bin/bash -c "/usr/local/sbin/setup_container.sh && tail -f > /dev/null" # TODO keep these logs?
 
 # Wait for slurm to be up
 # Number of retries
