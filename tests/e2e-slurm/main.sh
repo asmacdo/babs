@@ -21,7 +21,8 @@ TAG=23.11.07 # TODO
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 
 BABS_PROJECT=babs_test_project
-ROOT_DIR=${PWD}
+# TODO: shellcheck check/proof this script
+ROOT_DIR="${PWD}"
 PROJECT_NAME=test_project
 
 # exported for use in inner-slurm.sh
@@ -58,9 +59,11 @@ podman run --rm -d \
 	--name slurm \
 	--hostname slurmctl  \
 	--privileged \
-	-v ${PWD}:${PWD}:Z \
-	-v ${MINICONDA_PATH}:${MINICONDA_PATH}:Z \
-	${FQDN_IMAGE} \
+    -v "$HOME/.gitconfig:/root/.gitconfig:roZ" \
+    -v "$HOME/.gitconfig:/home/$USER/.gitconfig:roZ" \
+	-v "${PWD}:${PWD}:Z" \
+	-v "${MINICONDA_PATH}:${MINICONDA_PATH}:Z" \
+	"${FQDN_IMAGE}" \
 	/bin/bash -c "groupadd --gid $(id -u) $USER && useradd --uid $(id -u) --gid $(id -u) $USER && tail -f > /dev/null" # TODO keep these logs?
 
 # Wait for slurm to be up
@@ -100,8 +103,12 @@ mkdir $BABS_PROJECT
 cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT
 pushd $BABS_PROJECT
 
-git config user.name "e2e slurm"
-git config user.email "fake@example.com"
+# If to be done -- to be done in separate script
+# or ideally, as we do in other projects but here might interfer with podman
+# in a temporary HOME directory...
+#
+# git config user.name "e2e slurm"
+# git config user.email "fake@example.com"
 
 # Sanity check
 git config --list --show-origin
