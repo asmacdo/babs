@@ -26,6 +26,8 @@ PROJECT_NAME=test_project
 
 # exported for use in inner-slurm.sh
 export LOGS_DIR=$ROOT_DIR/ci-logs
+# exported for use in config_toybidsapp.yaml TODO doesnt work, hardcoded there!
+export MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
 
 cleanup () {
 	set +e
@@ -37,17 +39,13 @@ cleanup () {
 	set -u
 	echo "project logs: -----------------------"
 	cat $LOGS_DIR/*
+	# TODO necessary to rerun locally
 	# rm -rf $ROOT_DIR/$BABS_PROJECT
 	# rm -rf $LOGS_DIR
 }
 
-# TODO Can we autodetect this?
-export MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
-
-
 trap cleanup EXIT
 mkdir $LOGS_DIR
-
 
 # START SLURM -------------------------------
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
@@ -131,14 +129,23 @@ babs-init \
     --type_session multi-ses \
     --type_system slurm
 
-echo "Miniconda path == $MINICONDA_PATH"
-babs-check-setup --project_root ${PWD}/test_project/ --job-test
-
 # TODO: check file output of babs-init
+echo "PASSED: babs-init"
 
-# TODO: babs-check-status-nojob
+echo "debug: Miniconda path == $MINICONDA_PATH"
 
-# TODO: babs-check-status-job
+echo "Check setup, without job"
+babs-check-setup --project_root ${PWD}/test_project/
+echo "PASSED: Check setup, without job"
+
+babs-check-setup --project_root ${PWD}/test_project/ --job-test
+echo "PASSED: Check setup, with job"
+
+babs-status --project_root ${PWD}/test_project/
+
+# TODO babs-submit
+# TODO babs-status w/job
+# TODO babs-merge
 
 popd
 # /tests/e2e-slurm/babs-tests.sh
