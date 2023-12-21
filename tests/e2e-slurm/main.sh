@@ -81,6 +81,7 @@ for ((i=1; i<=max_retries; i++)); do
 	# Check if the command was successful
 	if [ $? -eq 0 ]; then
 		echo "Slurm is up and running!"
+		podman exec -it  slurm "git config --global user.name 'e2e slurm' &&  git config --global user.email 'fake@example.com'"
 		break
 	else
 		echo "Waiting for Slurm to start... retry $i/$max_retries"
