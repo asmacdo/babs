@@ -98,8 +98,8 @@ mkdir $BABS_PROJECT
 cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT
 pushd $BABS_PROJECT
 
-git config --set user.name "GH Action e2e slurm"
-git config --get user.email "fake@example.com"
+git config --global user.name "GH Action e2e slurm"
+git config --global user.email "fake@example.com"
 
 # Populate input data (Divergent from tuturial, bc https://github.com/datalad/datalad-osf/issues/191
 datalad install ///dbic/QA
