@@ -59,8 +59,8 @@ podman run --rm -d \
 	--name slurm \
 	--hostname slurmctl  \
 	--privileged \
-    -v "$HOME/.gitconfig:/root/.gitconfig:roZ" \
-    -v "$HOME/.gitconfig:/home/$USER/.gitconfig:roZ" \
+    -v "$HOME/.gitconfig:/root/.gitconfig:ro,Z" \
+    -v "$HOME/.gitconfig:/home/$USER/.gitconfig:ro,Z" \
 	-v "${PWD}:${PWD}:Z" \
 	-v "${MINICONDA_PATH}:${MINICONDA_PATH}:Z" \
 	"${FQDN_IMAGE}" \
@@ -118,6 +118,8 @@ datalad install ///dbic/QA
 
 # TODO ----------------------------------------------------
 # this can be cut if we pull the sing container down instead of build
+# Just use datalad containers-add directly with docker://pennlinc/toy_bids_app:0.0.7
+#  datalad containers-add toy-bids-app --url docker://pennlinc/toy_bids_app:0.0.7
 singularity build \
     toybidsapp-0.0.7.sif \
     docker://pennlinc/toy_bids_app:0.0.7
