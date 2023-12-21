@@ -81,7 +81,8 @@ for ((i=1; i<=max_retries; i++)); do
 	# Check if the command was successful
 	if [ $? -eq 0 ]; then
 		echo "Slurm is up and running!"
-		podman exec -it  slurm "git config --global user.name 'e2e slurm' &&  git config --global user.email 'fake@example.com'"
+		# TODO Error: executable file `git config --global user.name 'e2e slurm' &&  git config --global user.email 'fake@example.com'` not found in $PATH: No such file or directory: OCI runtime attempted to invoke a command that was not found
+		# podman exec -it  slurm "git config --global user.name 'e2e slurm' &&  git config --global user.email 'fake@example.com'"
 		break
 	else
 		echo "Waiting for Slurm to start... retry $i/$max_retries"
@@ -99,8 +100,8 @@ mkdir $BABS_PROJECT
 cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT
 pushd $BABS_PROJECT
 
-git config --global user.name "e2e slurm"
-git config --global user.email "fake@example.com"
+git config user.name "e2e slurm"
+git config user.email "fake@example.com"
 
 # Sanity check
 git config --list --show-origin
