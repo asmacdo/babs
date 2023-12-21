@@ -98,6 +98,9 @@ mkdir $BABS_PROJECT
 cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT
 pushd $BABS_PROJECT
 
+git config --set user.name "GH Action e2e slurm"
+git config --get user.email "fake@example.com"
+
 # Populate input data (Divergent from tuturial, bc https://github.com/datalad/datalad-osf/issues/191
 datalad install ///dbic/QA
 
@@ -149,10 +152,9 @@ babs-status --project_root ${PWD}/test_project/
 sleep 30s
 babs-status --project_root ${PWD}/test_project/
 
-# Print job logs
-cat ${PWD}/test_project/analysis/logs/*
-# Print job logs better?
+echo "Print job logs--------------------------------------------"
 find ${PWD}/test_project/analysis/logs/* -type f -print -exec cat {} \;
+echo "end job logs--------------------------------------------"
 # TODO: babs-check-status-job
 
 # TODO babs-merge
