@@ -149,6 +149,12 @@ babs-status --project_root ${PWD}/test_project/
 sleep 30s
 babs-status --project_root ${PWD}/test_project/
 
+# Print job logs
+cat ${PWD}/test_project/analysis/logs/*
+# Print job logs better?
+find ${PWD}/test_project/analysis/logs/* -type f -print -exec cat {} \;
+# TODO: babs-check-status-job
+
 # TODO babs-merge
 
 popd
