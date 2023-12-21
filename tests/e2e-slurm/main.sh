@@ -143,8 +143,12 @@ echo "PASSED: Check setup, with job"
 
 babs-status --project_root ${PWD}/test_project/
 
-# TODO babs-submit
-# TODO babs-status w/job
+babs-submit --project_root ${PWD}/test_project/
+
+babs-status --project_root ${PWD}/test_project/
+sleep 30s
+babs-status --project_root ${PWD}/test_project/
+
 # TODO babs-merge
 
 popd
