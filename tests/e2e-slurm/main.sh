@@ -20,17 +20,21 @@ TAG=23.11.07 # TODO
 
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 
-BABS_PROJECT=babs_test_project
 # TODO: shellcheck check/proof this script
 THIS_DIR="$(readlink -f "$0" | xargs dirname )"
 ROOT_DIR="$(echo "$THIS_DIR" | xargs dirname | xargs dirname)"
+TESTDATA=$ROOT_DIR/.testdata
+export LOGS_DIR=$TESTDATA/ci-logs
 
 PROJECT_NAME=test_project
+# TODO babs project vs test project name?
+BABS_PROJECT_DIR=$TESTDATA/babs_test_project
 
 # exported for use in inner-slurm.sh
-export LOGS_DIR=$ROOT_DIR/ci-logs
 # exported for use in config_toybidsapp.yaml TODO doesnt work, hardcoded there!
 export MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
+
+source ./tests/e2e-slurm/ensure-env.sh
 
 cleanup () {
 	set +e
@@ -43,12 +47,10 @@ cleanup () {
 	echo "project logs: -----------------------"
 	cat $LOGS_DIR/*
 	# TODO necessary to rerun locally
-	# rm -rf $ROOT_DIR/$BABS_PROJECT
-	# rm -rf $LOGS_DIR
 }
 
 trap cleanup EXIT
-mkdir $LOGS_DIR
+mkdir -p $LOGS_DIR
 
 # START SLURM -------------------------------
 	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
@@ -102,20 +104,11 @@ for ((i=1; i<=max_retries; i++)); do
 done
 set -e
 
-mkdir $BABS_PROJECT
-cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT
-pushd $BABS_PROJECT
+mkdir $BABS_PROJECT_DIR
+cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT_DIR
+pushd $BABS_PROJECT_DIR
 
-# If to be done -- to be done in separate script
-# or ideally, as we do in other projects but here might interfer with podman
-# in a temporary HOME directory...
-#
-# git config user.name "e2e slurm"
-# git config user.email "fake@example.com"
-
-# Sanity check
-git config --list --show-origin
-
+# TODO switch back to osf project
 # Populate input data (Divergent from tuturial, bc https://github.com/datalad/datalad-osf/issues/191
 datalad install ///dbic/QA
 
@@ -123,7 +116,7 @@ datalad install ///dbic/QA
 # this can be cut if we pull the sing container down instead of build
 # Just use datalad containers-add directly with docker://pennlinc/toy_bids_app:0.0.7
 #  datalad containers-add toy-bids-app --url docker://pennlinc/toy_bids_app:0.0.7
-singularity build \
+singularity build -f \
     toybidsapp-0.0.7.sif \
     docker://pennlinc/toy_bids_app:0.0.7
 datalad create -D "toy BIDS App" toybidsapp-container

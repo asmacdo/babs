@@ -2,18 +2,12 @@
 
 set -eu
 
-current_env=$(conda env list | grep '*' | awk '{print $1}')
-if [ "$current_env" != "babs" ]; then
-    echo "Error: This script expects to be run inside a conda env named 'babs'."
-    exit 1
-fi
-echo "Success, we are in the babs conda env"
-
-# TODO does this even need to be configured for gh actions?
-git config --global user.name "GH Action"
-git config --global user.email "fake@example.com"
+source tests/e2e-slurm/ensure-env.sh
 
 conda install -c conda-forge datalad git git-annex -y
+
+# Optional dependencies, required for e2e-slurm
 pip install datalad_container
-# pip install datalad-osf
+pip install datalad-osf
+
 pip install .

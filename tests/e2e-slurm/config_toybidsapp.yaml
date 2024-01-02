@@ -16,7 +16,6 @@ cluster_resources:
 # when this is executed by babs-init it doesnt have MINICONDA_PATH set... even though it is set in the env that babs-init is running
 # Necessary commands to be run first:
 script_preamble: |
-    export MINICONDA_PATH=/usr/share/miniconda/ && \
     . "${MINICONDA_PATH}/etc/profile.d/conda.sh" && \
     conda activate babs
 
