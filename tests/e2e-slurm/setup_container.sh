@@ -2,12 +2,13 @@
 
 set -eu
 
-# add that outside user (TODO: check if still needed)
-groupadd --gid $(id -u) $USER  && useradd --uid $(id -u) --gid $(id -u) $USER
+# add that outside user
+groupadd --gid $GID $USER  && useradd --uid $UID --gid $GID $USER
+getent passwd
 
 # Install singularity inside the container
-yum update -y && yum install -y epel-release &&  yum update -y &&  yum install -y singularity-runtime apptainer
+# yum update -y && yum install -y epel-release &&  yum update -y &&  yum install -y singularity-runtime apptainer
 
-
-git config user.name "e2e slurm"
-git config user.email "fake@example.com"
+# TODO delete, we are binding in git config
+# git config user.name "e2e slurm"
+# git config user.email "fake@example.com"

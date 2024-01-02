@@ -56,7 +56,7 @@ podman run --rm -d \
 	"${FQDN_IMAGE}" \
 	/bin/bash -c "/usr/local/sbin/setup_container.sh && tail -f > /dev/null" # TODO keep these logs?
 
-# trap stop_container EXIT
+trap stop_container EXIT
 
 # Wait for slurm to be up
 max_retries=10
@@ -72,8 +72,9 @@ for ((i=1; i<=max_retries; i++)); do
 	# Check if the command was successful
 	if [ $? -eq 0 ]; then
 		echo "Slurm is up and running!"
-		# TODO Error: executable file `git config --global user.name 'e2e slurm' &&  git config --global user.email 'fake@example.com'` not found in $PATH: No such file or directory: OCI runtime attempted to invoke a command that was not found
-		# podman exec -it  slurm "git config --global user.name 'e2e slurm' &&  git config --global user.email 'fake@example.com'"
+		# sacct will fail until slurm is running. Thow those errors out so they arent confusing
+		rm $LOGS_DIR/slurmcmd.log
+		touch $LOGS_DIR/slurmcmd.log
 		break
 	else
 		echo "Waiting for Slurm to start... retry $i/$max_retries"
@@ -86,6 +87,8 @@ for ((i=1; i<=max_retries; i++)); do
     fi
 done
 set -e
+
+sleep 1 # So user/group are for sure done ebfore we submit the job?
 
 mkdir $PROJECT_ROOT
 cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $PROJECT_ROOT
