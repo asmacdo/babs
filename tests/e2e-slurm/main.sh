@@ -24,38 +24,22 @@ FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 THIS_DIR="$(readlink -f "$0" | xargs dirname )"
 ROOT_DIR="$(echo "$THIS_DIR" | xargs dirname | xargs dirname)"
 TESTDATA=$ROOT_DIR/.testdata
-export LOGS_DIR=$TESTDATA/ci-logs
 
-PROJECT_NAME=test_project
-# TODO babs project vs test project name?
-BABS_PROJECT_DIR=$TESTDATA/babs_test_project
+SUBPROJECT_NAME=test_project
+PROJECT_ROOT=$TESTDATA/babs_test_project
 
 # exported for use in inner-slurm.sh
-# exported for use in config_toybidsapp.yaml TODO doesnt work, hardcoded there!
 export MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
+export LOGS_DIR=$TESTDATA/ci-logs
 
 source ./tests/e2e-slurm/ensure-env.sh
 
-cleanup () {
-	set +e
-	echo "fake cleanup"
-	# echo "Shutting down slurm"
-	# podman stop slurm
-	# echo "Slurm shim output --------------------------------------"
-	# cat $LOGS_DIR/*
-	# # DANGER set -u NECESSARY
-	# set -u
-	# echo "project logs: -----------------------"
-	# cat $LOGS_DIR/*
-	# TODO necessary to rerun locally
-}
-
-trap cleanup EXIT
 mkdir -p $LOGS_DIR
 
-# START SLURM -------------------------------
-	    # -e "PATH=${MINICONDA_PATH}:$PATH" # This wouldn't work...right? # TODO
-	    # MINICONDA_PATH needs to be identical in and out?, conda expects? is that true? File RFE upstream?
+stop_container () {
+	podman stop slurm || true
+}
+
 podman run --rm -d \
 	-e "UID=$(id -u)" \
 	-e "GID=$(id -g)" \
@@ -72,20 +56,18 @@ podman run --rm -d \
 	"${FQDN_IMAGE}" \
 	/bin/bash -c "/usr/local/sbin/setup_container.sh && tail -f > /dev/null" # TODO keep these logs?
 
+# trap stop_container EXIT
+
 # Wait for slurm to be up
-# Number of retries
 max_retries=10
-# Delay in seconds
-delay=10
+delay=10  # seconds
 
 echo "Wait for Trying sacct until it succeeds"
 set +e # We need to check the error code and allow failures until slurm has started up
 export PATH=${PWD}/tests/e2e-slurm/bin/:${PATH}
 for ((i=1; i<=max_retries; i++)); do
-	# Don't print confusing error messages, this is expected to fail a time or a few
-	echo "$PATH"
+	# TODO Don't print confusing error messages, this is expected to fail a time or a few
 	sacct
-	# sacct > /dev/null 2>&1
 
 	# Check if the command was successful
 	if [ $? -eq 0 ]; then
@@ -105,9 +87,9 @@ for ((i=1; i<=max_retries; i++)); do
 done
 set -e
 
-mkdir $BABS_PROJECT_DIR
-cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $BABS_PROJECT_DIR
-pushd $BABS_PROJECT_DIR
+mkdir $PROJECT_ROOT
+cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $PROJECT_ROOT
+pushd $PROJECT_ROOT
 
 # TODO switch back to osf project
 # Populate input data (Divergent from tuturial, bc https://github.com/datalad/datalad-osf/issues/191
@@ -128,14 +110,11 @@ datalad containers-add \
 popd
 rm -f toybidsapp-0.0.7.sif
 # end TODO ----------------------------------------------------
-#
 
-
-
-# TODO --where_project must be abspath file issue for relative path
+# TODO File Issue: --where_project must be abspath file issue for relative path
 babs-init \
     --where_project ${PWD} \
-    --project_name $PROJECT_NAME \
+    --project_name $SUBPROJECT_NAME \
     --input BIDS ${PWD}/QA \
     --container_ds ${PWD}/toybidsapp-container \
     --container_name toybidsapp-0-0-7 \
