@@ -38,14 +38,15 @@ source ./tests/e2e-slurm/ensure-env.sh
 
 cleanup () {
 	set +e
-	echo "Shutting down slurm"
-	podman stop slurm
-	echo "Slurm shim output --------------------------------------"
-	cat $LOGS_DIR/*
-	# DANGER set -u NECESSARY
-	set -u
-	echo "project logs: -----------------------"
-	cat $LOGS_DIR/*
+	echo "fake cleanup"
+	# echo "Shutting down slurm"
+	# podman stop slurm
+	# echo "Slurm shim output --------------------------------------"
+	# cat $LOGS_DIR/*
+	# # DANGER set -u NECESSARY
+	# set -u
+	# echo "project logs: -----------------------"
+	# cat $LOGS_DIR/*
 	# TODO necessary to rerun locally
 }
 
