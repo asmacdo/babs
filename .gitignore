@@ -12,3 +12,6 @@ build/
 # Distribution / packaging
 dist/
 babs/VERSION
+
+# e2e test project
+tests/e2e-slurm/babs_test_project

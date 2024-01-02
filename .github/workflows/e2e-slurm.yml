@@ -24,7 +24,7 @@ jobs:
           run: conda info
         - name: Install Babs
           shell: bash -el {0}
-          run: ./hack/install-babs.sh
+          run: ./tests/e2e-slurm/install-babs.sh
         - name: Execute e2e with SLURM
           shell: bash -el {0}
           run: ./tests/e2e-slurm/main.sh
