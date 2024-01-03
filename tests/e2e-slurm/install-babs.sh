@@ -10,4 +10,6 @@ conda install -c conda-forge datalad git git-annex -y
 pip install datalad_container
 pip install datalad-osf
 
-pip install .
+# TODO non-dynamic for prod
+# pip install .
+pip install -e .

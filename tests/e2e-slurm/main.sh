@@ -125,6 +125,9 @@ babs-init \
     --type_session multi-ses \
     --type_system slurm
 
+
+chmod -R a+w $TESTDATA
+
 # TODO: check file output of babs-init
 echo "PASSED: babs-init"
 
