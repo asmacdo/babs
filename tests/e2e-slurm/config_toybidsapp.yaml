@@ -18,11 +18,12 @@ cluster_resources:
 # TODO when this is executed by babs-init it doesnt have MINICONDA_PATH set... even though it is set in the env that babs-init is running
 # Necessary commands to be run first:
 script_preamble: |
-    echo ${MINICONDA_PATH} && \
-    export MINICONDA_PATH=/home/austin/miniconda3 && \
-    echo ${MINICONDA_PATH} && \
-    echo "TEE\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3" && . "$MINICONDA_PATH/etc/profile.d/conda.sh" && \
-    conda activate babs
+    echo "EXPORT" && export && which -a babs-init
+#    echo ${MINICONDA_PATH} && \
+#    export MINICONDA_PATH=/home/austin/miniconda3 && \
+#    echo ${MINICONDA_PATH} && \
+#    echo "TEE\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3\n3" && . "$MINICONDA_PATH/etc/profile.d/conda.sh" && \
+#    conda activate babs
 
 # Where to run the jobs:
 job_compute_space: "/tmp"

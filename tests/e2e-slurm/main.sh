@@ -29,12 +29,19 @@ SUBPROJECT_NAME=test_project
 PROJECT_ROOT=$TESTDATA/babs_test_project
 
 # exported for use in inner-slurm.sh
-export MINICONDA_PATH=${MINICONDA_PATH:=/usr/share/miniconda}
+if [ -z "${MINICONDA_PATH:-}" ]; then
+    if hash conda; then
+        export MINICONDA_PATH=$(/bin/which conda | xargs dirname | xargs dirname)
+    else
+        echo "ERROR: must have MINICONDA_PATH set or have 'conda' available"
+        exit 1
+    fi
+fi
 export LOGS_DIR=$TESTDATA/ci-logs
 
-source ./tests/e2e-slurm/ensure-env.sh
+./tests/e2e-slurm/ensure-env.sh
 
-mkdir -p $LOGS_DIR
+mkdir -p "$LOGS_DIR"
 
 stop_container () {
 	podman stop slurm || true
@@ -45,6 +52,7 @@ podman run --rm -d \
 	-e "GID=$(id -g)" \
 	-e "USER=$USER" \
 	-e "MINICONDA_PATH=${MINICONDA_PATH}" \
+    -e "CONDA_DEFAULT_ENV=${CONDA_DEFAULT_ENV:-}" \
 	--name slurm \
 	--hostname slurmctl  \
 	--privileged \
@@ -54,9 +62,9 @@ podman run --rm -d \
 	-v "${MINICONDA_PATH}:${MINICONDA_PATH}:Z" \
     -v "${THIS_DIR}/setup_container.sh:/usr/local/sbin/setup_container.sh:ro,Z" \
 	"${FQDN_IMAGE}" \
-	/bin/bash -c "/usr/local/sbin/setup_container.sh && tail -f > /dev/null" # TODO keep these logs?
+	/bin/bash -c ". /usr/local/sbin/setup_container.sh && tail -f > /dev/null" # TODO keep these logs?
 
-trap stop_container EXIT
+# trap stop_container EXIT
 
 # Wait for slurm to be up
 max_retries=10
@@ -73,8 +81,8 @@ for ((i=1; i<=max_retries; i++)); do
 	if [ $? -eq 0 ]; then
 		echo "Slurm is up and running!"
 		# sacct will fail until slurm is running. Thow those errors out so they arent confusing
-		rm $LOGS_DIR/slurmcmd.log
-		touch $LOGS_DIR/slurmcmd.log
+		rm "$LOGS_DIR"/slurmcmd.log
+		touch "$LOGS_DIR"/slurmcmd.log
 		break
 	else
 		echo "Waiting for Slurm to start... retry $i/$max_retries"
@@ -90,9 +98,9 @@ set -e
 
 sleep 1 # So user/group are for sure done ebfore we submit the job?
 
-mkdir $PROJECT_ROOT
-cp ${PWD}/tests/e2e-slurm/config_toybidsapp.yaml $PROJECT_ROOT
-pushd $PROJECT_ROOT
+mkdir "$PROJECT_ROOT"
+cp "${PWD}/tests/e2e-slurm/config_toybidsapp.yaml" "$PROJECT_ROOT"
+pushd "$PROJECT_ROOT"
 
 # TODO switch back to osf project
 # Populate input data (Divergent from tuturial, bc https://github.com/datalad/datalad-osf/issues/191
@@ -108,7 +116,7 @@ singularity build -f \
 datalad create -D "toy BIDS App" toybidsapp-container
 pushd toybidsapp-container
 datalad containers-add \
-    --url ${PWD}/../toybidsapp-0.0.7.sif \
+    --url "${PWD}"/../toybidsapp-0.0.7.sif \
     toybidsapp-0-0-7
 popd
 rm -f toybidsapp-0.0.7.sif
@@ -116,17 +124,17 @@ rm -f toybidsapp-0.0.7.sif
 
 # TODO File Issue: --where_project must be abspath file issue for relative path
 babs-init \
-    --where_project ${PWD} \
+    --where_project "${PWD}" \
     --project_name $SUBPROJECT_NAME \
-    --input BIDS ${PWD}/QA \
-    --container_ds ${PWD}/toybidsapp-container \
+    --input BIDS "${PWD}"/QA \
+    --container_ds "${PWD}"/toybidsapp-container \
     --container_name toybidsapp-0-0-7 \
-    --container_config_yaml_file ${PWD}/config_toybidsapp.yaml \
+    --container_config_yaml_file "${PWD}"/config_toybidsapp.yaml \
     --type_session multi-ses \
     --type_system slurm
 
 
-chmod -R a+w $TESTDATA
+chmod -R a+w "$TESTDATA"
 
 # TODO: check file output of babs-init
 echo "PASSED: babs-init"
@@ -134,22 +142,22 @@ echo "PASSED: babs-init"
 echo "debug: Miniconda path == $MINICONDA_PATH"
 
 echo "Check setup, without job"
-babs-check-setup --project_root ${PWD}/test_project/
+babs-check-setup --project_root "${PWD}"/test_project/
 echo "PASSED: Check setup, without job"
 
-babs-check-setup --project_root ${PWD}/test_project/ --job-test
+babs-check-setup --project_root "${PWD}"/test_project/ --job-test
 echo "PASSED: Check setup, with job"
 
-babs-status --project_root ${PWD}/test_project/
+babs-status --project_root "${PWD}"/test_project/
 
-babs-submit --project_root ${PWD}/test_project/
+babs-submit --project_root "${PWD}"/test_project/
 
-babs-status --project_root ${PWD}/test_project/
+babs-status --project_root "${PWD}"/test_project/
 sleep 30s
-babs-status --project_root ${PWD}/test_project/
+babs-status --project_root "${PWD}"/test_project/
 
 echo "Print job logs--------------------------------------------"
-find ${PWD}/test_project/analysis/logs/* -type f -print -exec cat {} \;
+find "${PWD}"/test_project/analysis/logs/* -type f -print -exec cat {} \;
 echo "end job logs--------------------------------------------"
 # TODO: babs-check-status-job
 
