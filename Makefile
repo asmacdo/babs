@@ -6,8 +6,9 @@ e2e: clean
 
 # TODO testdata variable
 clean:
-	podman stop slurm || true
-	datalad remove -d .testdata/babs_test_project/toybidsapp-container --reckless availability || true
+	podman stop slurm 2>/dev/null || true
+	[ -e .testdata/babs_test_project/toybidsapp-container ] && \
+		datalad remove -d .testdata/babs_test_project/toybidsapp-container --reckless kill || :
 	rm -rf .testdata
 
 logs:
