@@ -18,14 +18,11 @@ cluster_resources:
 # TODO when this is executed by babs-init it doesnt have MINICONDA_PATH set... even though it is set in the env that babs-init is running
 # Necessary commands to be run first:
 script_preamble: |
-    git config --global --add safe.directory "*"
+    # git config --global --add safe.directory "*"
+    echo "SCRIPT_PREAMBLE"
     whoami
-    ls -lah /home/austin
-    if test -f /home/austin/.bashrc; then
-        echo "Bashrc exists."
-    else
-        echo "BASHRC DNE!"
-    fi
+    ls -la ~/
+    . ~/.bashrc
     echo "miniconda path is: ${MINICONDA_PATH}"
     . "$MINICONDA_PATH/etc/profile.d/conda.sh"
     conda activate babs

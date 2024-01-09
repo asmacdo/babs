@@ -44,23 +44,23 @@ export LOGS_DIR=$TESTDATA/ci-logs
 
 mkdir -p "$LOGS_DIR"
 mkdir -p "$CACHE_DIR"
+umask 002  # so that all our processes inside would have access to inside container root group writeable perms
+chmod -R ug+w "$TESTDATA"
 
 stop_container () {
 	podman stop slurm || true
 }
 
-podman run --rm -d \
+podman run -d --rm \
 	-e "UID=$(id -u)" \
 	-e "GID=$(id -g)" \
 	-e "USER=$USER" \
 	-e "MINICONDA_PATH=${MINICONDA_PATH}" \
-    -e "CONDA_DEFAULT_ENV=${CONDA_DEFAULT_ENV:-}" \
+	-e "CONDA_DEFAULT_ENV=${CONDA_DEFAULT_ENV:-}" \
 	-v "$CACHE_DIR:/home/$USER/.cache/datalad:Z" \
 	--name slurm \
 	--hostname slurmctl  \
 	--privileged \
-    -v "$HOME/.gitconfig:/root/.gitconfig:ro,Z" \
-    -v "$HOME/.gitconfig:/home/$USER/.gitconfig:ro,Z" \
 	-v "${PWD}:${PWD}:Z" \
 	-v "${MINICONDA_PATH}:${MINICONDA_PATH}:Z" \
     -v "${THIS_DIR}/setup_container.sh:/usr/local/sbin/setup_container.sh:ro,Z" \
@@ -77,11 +77,8 @@ echo "Wait for Trying sacct until it succeeds"
 set +e # We need to check the error code and allow failures until slurm has started up
 export PATH=${PWD}/tests/e2e-slurm/bin/:${PATH}
 for ((i=1; i<=max_retries; i++)); do
-	# TODO Don't print confusing error messages, this is expected to fail a time or a few
-	sacct
-
 	# Check if the command was successful
-	if [ $? -eq 0 ]; then
+	if sacct; then
 		echo "Slurm is up and running!"
 		# sacct will fail until slurm is running. Thow those errors out so they arent confusing
 		rm "$LOGS_DIR"/slurmcmd.log
@@ -137,7 +134,6 @@ babs-init \
     --type_system slurm
 
 
-chmod -R a+w "$TESTDATA"
 
 # TODO: check file output of babs-init
 echo "PASSED: babs-init"
