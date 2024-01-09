@@ -14,4 +14,4 @@ topd=$(readlink -f "$0"  | xargs dirname | xargs dirname)
 # echo "Delegating inside: topd=$topd cmd=$cmd"
 
 # --user $USER
-podman exec --user $USER "$RUNNING_SLURM_CONTAINER_NAME" "$cmd" "$@" 2>&1 | tee --append "$LOGS_DIR/slurmcmd.log"
+podman exec --user $USER "$RUNNING_SLURM_CONTAINER_NAME" "$cmd" "$@" 2>&1 | tee --append "${LOGS_DIR:-/tmp/}/slurmcmd.log"
