@@ -18,3 +18,6 @@ echo "HELLO IM SOURCED"
 echo $MINICONDA_PATH
 EOF
 chmod a+x /home/"$USER"/.bashrc
+mkdir -p /home/"$USER"/.cache
+
+chown -R "$USER":"$GID" /home/"$USER"/.cache
