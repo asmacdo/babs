@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # each simlink to this file in this dir will be added to the local path but executed inside the running slurm container
 set -eu
