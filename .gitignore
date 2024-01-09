@@ -14,4 +14,4 @@ dist/
 babs/VERSION
 
 # e2e testdata
-.testdata
+.testdata*
