@@ -24,6 +24,7 @@ FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
 THIS_DIR="$(readlink -f "$0" | xargs dirname )"
 ROOT_DIR="$(echo "$THIS_DIR" | xargs dirname | xargs dirname)"
 TESTDATA=$ROOT_DIR/.testdata
+CACHE_DIR=$TESTDATA/.cache/datalad
 
 SUBPROJECT_NAME=test_project
 PROJECT_ROOT=$TESTDATA/babs_test_project
@@ -42,6 +43,7 @@ export LOGS_DIR=$TESTDATA/ci-logs
 ./tests/e2e-slurm/ensure-env.sh
 
 mkdir -p "$LOGS_DIR"
+mkdir -p "$CACHE_DIR"
 
 stop_container () {
 	podman stop slurm || true
@@ -53,6 +55,7 @@ podman run --rm -d \
 	-e "USER=$USER" \
 	-e "MINICONDA_PATH=${MINICONDA_PATH}" \
     -e "CONDA_DEFAULT_ENV=${CONDA_DEFAULT_ENV:-}" \
+	-v "$CACHE_DIR:/home/$USER/.cache/datalad:Z" \
 	--name slurm \
 	--hostname slurmctl  \
 	--privileged \

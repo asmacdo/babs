@@ -1674,6 +1674,7 @@ def submit_one_test_job(analysis_path, type_system, flag_print_message=True):
                               stdout=subprocess.PIPE)
 
     proc_cmd.check_returncode()
+    print(f"Return code: {proc_cmd.returncode}")
     msg = proc_cmd.stdout.decode('utf-8')
 
     if type_system == "sge":
@@ -1685,6 +1686,8 @@ def submit_one_test_job(analysis_path, type_system, flag_print_message=True):
         # e.g., on MIT OpenMind: no 1st line from MSI; only 2nd line.
     else:
         raise Exception("type system can be slurm or sge")
+
+    # This is necessary SLURM commands can fail but have return code 0
     try:
         job_id = int(job_id_str)
     except ValueError as e:

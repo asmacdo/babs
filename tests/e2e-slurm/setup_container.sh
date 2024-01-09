@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -i
 
 set -eu
 
@@ -12,7 +12,9 @@ git config user.name > /dev/null || git config --global user.name "e2e slurm"
 git config user.email > /dev/null || git config --global user.email "fake@example.com"
 
 # Setup env to use conda
-cat > ~/.bashrc << EOF
-. "\$MINICONDA_PATH/etc/profile.d/conda.sh"
-conda activate \${CONDA_DEFAULT_ENV:-babs}  # TODO: remove default?
+cat > /home/$USER/.bashrc << EOF
+export MINICONDA_PATH=$MINICONDA_PATH
+echo "HELLO IM SOURCED"
+echo $MINICONDA_PATH
 EOF
+chmod a+x /home/$USER/.bashrc
