@@ -1,8 +1,14 @@
 install:
 	./tests/e2e-slurm/install-babs.sh
 
+setup-user:
+	./tests/e2e-slurm/setup-user.sh
+
 e2e: clean
 	./tests/e2e-slurm/main.sh
+
+build: clean
+	podman build -f tests/e2e-slurm/Containerfile . -t testss
 
 # TODO testdata variable
 clean:

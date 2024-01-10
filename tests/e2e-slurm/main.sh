@@ -19,15 +19,8 @@ REPO=centos7-slurm
 TAG=23.11.07 # TODO
 
 FQDN_IMAGE=${REGISTRY}/${HUBUSER}/${REPO}:${TAG}
-
-# TODO: shellcheck check/proof this script
 THIS_DIR="$(readlink -f "$0" | xargs dirname )"
-ROOT_DIR="$(echo "$THIS_DIR" | xargs dirname | xargs dirname)"
-TESTDATA=$ROOT_DIR/.testdata
-CACHE_DIR=$TESTDATA/.cache/datalad
-
-SUBPROJECT_NAME=test_project
-PROJECT_ROOT=$TESTDATA/babs_test_project
+TESTDATA=/opt/testdata
 
 # exported for use in inner-slurm.sh
 if [ -z "${MINICONDA_PATH:-}" ]; then
@@ -38,140 +31,22 @@ if [ -z "${MINICONDA_PATH:-}" ]; then
         exit 1
     fi
 fi
-export LOGS_DIR=$TESTDATA/ci-logs
-
-./tests/e2e-slurm/ensure-env.sh
-
-mkdir -p "$LOGS_DIR"
-mkdir -p "$CACHE_DIR"
-umask 002  # so that all our processes inside would have access to inside container root group writeable perms
-chmod -R ug+w "$TESTDATA"
+./tests/e2e-slurm/container/ensure-env.sh
 
 stop_container () {
 	podman stop slurm || true
 }
 
-podman run -d --rm \
-	-e "UID=$(id -u)" \
-	-e "GID=$(id -g)" \
-	-e "USER=$USER" \
-	-e "MINICONDA_PATH=${MINICONDA_PATH}" \
-	-e "CONDA_DEFAULT_ENV=${CONDA_DEFAULT_ENV:-}" \
-	-v "$CACHE_DIR:/home/$USER/.cache/datalad:Z" \
+ # Because babs is dev-installed from here. TODO: we can remove if we remove -e from pip install
+podman run -it --rm \
 	--name slurm \
 	--hostname slurmctl  \
+	-e "MINICONDA_PATH=${MINICONDA_PATH}" \
 	--privileged \
-	-v "${PWD}:${PWD}:Z" \
+	-v "${PWD}:${PWD}:ro,Z" \
 	-v "${MINICONDA_PATH}:${MINICONDA_PATH}:Z" \
-    -v "${THIS_DIR}/setup_container.sh:/usr/local/sbin/setup_container.sh:ro,Z" \
+	-v "${THIS_DIR}/container:/opt/outer:ro,Z" \
 	"${FQDN_IMAGE}" \
-	/bin/bash -c ". /usr/local/sbin/setup_container.sh && tail -f > /dev/null" # TODO keep these logs?
+	/bin/bash -c ". /opt/outer/walkthrough-tests.sh" # TODO keep these logs?
 
 # trap stop_container EXIT
-
-# Wait for slurm to be up
-max_retries=10
-delay=10  # seconds
-
-echo "Wait for Trying sacct until it succeeds"
-set +e # We need to check the error code and allow failures until slurm has started up
-export PATH=${PWD}/tests/e2e-slurm/bin/:${PATH}
-for ((i=1; i<=max_retries; i++)); do
-	# Check if the command was successful
-	if sacct; then
-		echo "Slurm is up and running!"
-		# sacct will fail until slurm is running. Thow those errors out so they arent confusing
-		rm "$LOGS_DIR"/slurmcmd.log
-		touch "$LOGS_DIR"/slurmcmd.log
-		break
-	else
-		echo "Waiting for Slurm to start... retry $i/$max_retries"
-		sleep $delay
-	fi
-	# exit if max retries reached
-	if [ $i -eq $max_retries ]; then
-		echo "Failed to start Slurm after $max_retries attempts."
-	exit 1
-    fi
-done
-set -e
-
-sleep 1 # So user/group are for sure done ebfore we submit the job?
-
-mkdir "$PROJECT_ROOT"
-cp "${PWD}/tests/e2e-slurm/config_toybidsapp.yaml" "$PROJECT_ROOT"
-pushd "$PROJECT_ROOT"
-
-# TODO switch back to osf project
-# Populate input data (Divergent from tuturial, bc https://github.com/datalad/datalad-osf/issues/191
-datalad install ///dbic/QA
-
-# TODO ----------------------------------------------------
-# this can be cut if we pull the sing container down instead of build
-# Just use datalad containers-add directly with docker://pennlinc/toy_bids_app:0.0.7
-#  datalad containers-add toy-bids-app --url docker://pennlinc/toy_bids_app:0.0.7
-singularity build -f \
-    toybidsapp-0.0.7.sif \
-    docker://pennlinc/toy_bids_app:0.0.7
-datalad create -D "toy BIDS App" toybidsapp-container
-pushd toybidsapp-container
-datalad containers-add \
-    --url "${PWD}"/../toybidsapp-0.0.7.sif \
-    toybidsapp-0-0-7
-popd
-rm -f toybidsapp-0.0.7.sif
-# end TODO ----------------------------------------------------
-
-# TODO File Issue: --where_project must be abspath file issue for relative path
-babs-init \
-    --where_project "${PWD}" \
-    --project_name $SUBPROJECT_NAME \
-    --input BIDS "${PWD}"/QA \
-    --container_ds "${PWD}"/toybidsapp-container \
-    --container_name toybidsapp-0-0-7 \
-    --container_config_yaml_file "${PWD}"/config_toybidsapp.yaml \
-    --type_session multi-ses \
-    --type_system slurm
-
-
-
-# TODO: check file output of babs-init
-echo "PASSED: babs-init"
-
-echo "debug: Miniconda path == $MINICONDA_PATH"
-
-echo "Check setup, without job"
-babs-check-setup --project_root "${PWD}"/test_project/
-echo "PASSED: Check setup, without job"
-
-babs-check-setup --project_root "${PWD}"/test_project/ --job-test
-echo "PASSED: Check setup, with job"
-
-babs-status --project_root "${PWD}"/test_project/
-
-babs-submit --project_root "${PWD}"/test_project/
-
-babs-status --project_root "${PWD}"/test_project/
-sleep 30s
-babs-status --project_root "${PWD}"/test_project/
-
-echo "Print job logs--------------------------------------------"
-find "${PWD}"/test_project/analysis/logs/* -type f -print -exec cat {} \;
-echo "end job logs--------------------------------------------"
-# TODO: babs-check-status-job
-
-# TODO babs-merge
-
-popd
-# /tests/e2e-slurm/babs-tests.sh
-# podman exec  \
-# 	-e MINICONDA_PATH=${MINICONDA_PATH} \
-# 	slurm \
-# 	${PWD}/tests/e2e-slurm/babs-tests.sh
-#
-
-
-echo "--------------------------"
-echo "     HUZZZZZZAHHHHHH!!!!!!"
-echo "--------------------------"
-
