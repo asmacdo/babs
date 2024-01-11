@@ -24,10 +24,17 @@ TESTDATA=/opt/testdata
 
 . tests/e2e-slurm/container/ensure-env.sh
 
+if [ "$MINICONDA_PATH/envs/$CONDA_DEFAULT_ENV/bin/babs-init" != "$(which babs-init)" ]; then
+    echo "Error: This script expects to be run inside a conda env with 'babs-init'!" >&2
+    echo "       We have not found it in conda env '$CONDA_DEFAULT_ENV' under '$MINICONDA_PATH'" >&2
+    exit 1
+fi
+
 stop_container () {
 	podman stop slurm || true
 }
 
+echo "Success, we are in the conda env with babs-init!"
  # Because babs is dev-installed from here. TODO: we can remove if we remove -e from pip install
 podman run -it --rm \
 	--name slurm \
