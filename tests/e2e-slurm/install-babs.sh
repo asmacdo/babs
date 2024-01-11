@@ -2,7 +2,7 @@
 
 set -eu
 
-tests/e2e-slurm/container/ensure-env.sh
+. tests/e2e-slurm/container/ensure-env.sh
 
 conda install -c conda-forge datalad git git-annex -y
 
