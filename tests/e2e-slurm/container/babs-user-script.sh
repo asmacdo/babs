@@ -11,6 +11,12 @@ echo "DEBUG: TESTDATA=${TESTDATA}"
 source  "$MINICONDA_PATH/etc/profile.d/conda.sh"
 conda activate babs
 
+# record the miniconda path so it can added to the test env (slurm jobs do not preserve env)
+cat > /home/"$USER"/miniconda.env << EOF
+. "$MINICONDA_PATH/etc/profile.d/conda.sh"
+EOF
+
+
 
 git config --global user.name "e2e testuser"
 git config --global user.email "testuser@example.com"

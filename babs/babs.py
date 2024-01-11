@@ -2780,8 +2780,7 @@ class Container():
         elif system.type == "slurm":
             submit_head = "sbatch"
             # TODO: asmacdo
-            # env_flags = "--export=DSLOCKFILE=" + babs.analysis_path + "/.SLURM_datalad_lock"
-            env_flags = "--export=ALL,DSLOCKFILE=" + babs.analysis_path + "/.SLURM_datalad_lock"
+            env_flags = "--export=DSLOCKFILE=" + babs.analysis_path + "/.SLURM_datalad_lock"
         else:
             warnings.warn("not supporting systems other than sge...")
 
