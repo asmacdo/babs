@@ -28,16 +28,3 @@ jobs:
         - name: Execute e2e with SLURM
           shell: bash -el {0}
           run: ./tests/e2e-slurm/main.sh
-
-
-# Slurm container:
-#   - my fork or official? IIRC I fixed a bug upstream but there was no build.
-#       - TODO was new image built?
-#       - TODO set up build automation for slurm upstream https://github.com/giovtorres/docker-centos7-slurm/issues/53
-#
-# ref: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow
-# https://github.com/marketplace/actions/setup-miniconda#example-1-basic-usage
-# - execute ./tests/e2e-slurm.sh
-# - execute ./tests/e2e-slurm.sh
-# - log output 
-# - check error code
