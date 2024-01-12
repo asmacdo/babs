@@ -1,0 +1,12 @@
+# TODO: docker.io/giovtorres/docker-centos7-slurm
+# https://github.com/giovtorres/docker-centos7-slurm/pull/49
+FROM docker.io/asmacdo/centos7-slurm:23.11.07
+
+# TODO docmument
+# TODO ARG uid gid username
+RUN groupadd --gid 1000 testuser \
+ && useradd --gid 1000 --uid 1000 testuser
+
+RUN yum install -y epel-release \
+ && yum update -y \
+ && yum install -y singularity-runtime apptainer
