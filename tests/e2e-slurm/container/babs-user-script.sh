@@ -114,43 +114,4 @@ else
 fi
 
 babs-merge --project_root "${PWD}"/test_project/
-
-
-# TODO: we need to fail if there is a failed job
-# fi
-
-# sleep 10
-# babs-status --project_root "${PWD}"/test_project/
-# sleep 10
-# babs-status --project_root "${PWD}"/test_project/
-# sleep 10
-# babs-status --project_root "${PWD}"/test_project/
-# sleep 10
-# babs-status --project_root "${PWD}"/test_project/
-#
-# babs-submit --project_root "${PWD}"/test_project/
-#
-# babs-status --project_root "${PWD}"/test_project/
-# sleep 30s
-# babs-status --project_root "${PWD}"/test_project/
-#
-# echo "Print job logs--------------------------------------------"
-# find "${PWD}"/test_project/analysis/logs/* -type f -print -exec cat {} \;
-# echo "end job logs--------------------------------------------"
-# # TODO: babs-check-status-job
-#
-# # TODO babs-merge
-#
-# popd
-# # /tests/e2e-slurm/babs-tests.sh
-# # podman exec  \
-# # 	-e MINICONDA_PATH=${MINICONDA_PATH} \
-# # 	slurm \
-# # 	${PWD}/tests/e2e-slurm/babs-tests.sh
-# #
-#
-#
-# echo "--------------------------"
-# echo "     HUZZZZZZAHHHHHH!!!!!!"
-# echo "--------------------------"
-#
+echo "PASSED: e2e walkthrough successfull!"
