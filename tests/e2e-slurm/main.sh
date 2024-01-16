@@ -34,7 +34,7 @@ stop_container () {
 }
 
 echo "Success, we are in the conda env with babs-init!"
- # Because babs is dev-installed from here. TODO: we can remove if we remove -e from pip install
+# PWD shared so babs can be optionally be installed with develop install
 podman run -it --rm \
 	--name slurm \
 	--hostname slurmctl  \

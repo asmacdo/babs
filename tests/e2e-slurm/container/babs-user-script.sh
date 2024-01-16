@@ -4,6 +4,7 @@ SUBPROJECT_NAME=test_project
 
 set -eu
 
+echo "=============================================================="
 echo "We are now running as user $(whoami)"
 echo "DEBUG: MINICONDA_PATH=${MINICONDA_PATH}"
 echo "DEBUG: TESTDATA=${TESTDATA}"
