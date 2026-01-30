@@ -105,6 +105,7 @@ datalad containers-run \
 # Step 2: Zip outputs
 # --explicit: input subdataset is dirty from subject pruning (rm -rf) above;
 # without --explicit, datalad run refuses to start on a dirty dataset.
+{# TODO: str_sesid contains ${sesid} which needs datalad brace-escaping for session-level #}
 {% set str_sesid = '_${sesid}' if processing_level == 'session' else '' %}
 datalad run \
 	--explicit \
@@ -114,7 +115,7 @@ datalad run \
 	--output "${subid}{{ str_sesid }}_{{ key }}-{{ value }}.zip" \
 {% endfor %}
 	-- \
-	bash -c 'cd {{ output_main_foldername }} && {% for key, value in zip_foldernames.items() %}7z a "../${subid}{{ str_sesid }}_{{ key }}-{{ value }}.zip" "{{ key }}" && {% endfor %}cd ..'
+	bash -c 'cd {{ output_main_foldername }} && {% for key, value in zip_foldernames.items() %}7z a "../${%raw%}{{subid}}{%endraw%}{{ str_sesid }}_{{ key }}-{{ value }}.zip" "{{ key }}" && {% endfor %}cd ..'
 
 # Step 3: Remove raw outputs
 git rm -rf {{ output_main_foldername }}
