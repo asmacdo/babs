@@ -436,6 +436,16 @@ class BABSBootstrap(BABS):
         """Bootstrap scripts for single BIDS app configuration."""
         container = Container(container_ds, container_name, container_config)
 
+        # Generate `<containerName>_zip.sh`: ----------------------------------
+        print('\nGenerating a bash script for zipping outputs...')
+        print('This bash script will be named as `' + container_name + '_zip.sh`')
+        bash_path = op.join(self.analysis_path, 'code', container_name + '_zip.sh')
+        container.generate_bash_zip_outputs(bash_path, self.processing_level)
+        self.datalad_save(
+            path='code/' + container_name + '_zip.sh',
+            message='Generate script for zipping outputs',
+        )
+
         # make another folder within `code` for test jobs:
         os.makedirs(op.join(self.analysis_path, 'code/check_setup'), exist_ok=True)
 

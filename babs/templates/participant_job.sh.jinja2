@@ -102,24 +102,18 @@ datalad containers-run \
 {% endfor %}
 	{{ subject_selection_flag }} "${subid}"
 
-# Step 2: Zip outputs
+# Step 2: Zip outputs and remove raw files
 # --explicit: input subdataset is dirty from subject pruning (rm -rf) above;
 # without --explicit, datalad run refuses to start on a dirty dataset.
-{# TODO: str_sesid contains ${sesid} which needs datalad brace-escaping for session-level #}
-{% set str_sesid = '_${sesid}' if processing_level == 'session' else '' %}
 datalad run \
 	--explicit \
 	-m "Zip ${subid}{% if processing_level == 'session' %} ${sesid}{% endif %}" \
 	--input "{{ bids_app_output_dir }}" \
 {% for key, value in zip_foldernames.items() %}
-	--output "${subid}{{ str_sesid }}_{{ key }}-{{ value }}.zip" \
+	--output "${subid}{% if processing_level == 'session' %}_${sesid}{% endif %}_{{ key }}-{{ value }}.zip" \
 {% endfor %}
 	-- \
-	bash -c 'cd {{ output_main_foldername }} && {% for key, value in zip_foldernames.items() %}7z a "../${%raw%}{{subid}}{%endraw%}{{ str_sesid }}_{{ key }}-{{ value }}.zip" "{{ key }}" && {% endfor %}cd ..'
-
-# Step 3: Remove raw outputs
-git rm -rf {{ output_main_foldername }}
-git commit -m "Remove raw outputs for ${subid}{% if processing_level == 'session' %} ${sesid}{% endif %} (zipped)"
+	bash ./code/{{ container_name }}_zip.sh "${subid}"{% if processing_level == 'session' %} "${sesid}"{% endif %}
 
 # Finish up:
 # push result file content to output RIA storage:
