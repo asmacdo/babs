@@ -180,10 +180,14 @@ class BABSBootstrap(BABS):
         self.wtf_key_info()
 
         # Create input RIA sibling:
+        # storage_sibling=True creates annex/ dir in RIA, required for
+        # --reckless ephemeral clones in participant jobs.
+        # Without storage sibling, ephemeral clones fail with:
+        # "git-annex: .git/annex: createDirectory: already exists"
         self.analysis_datalad_handle.create_sibling_ria(
             name='input',
             url=self.input_ria_url,
-            storage_sibling=False,  # False is `off` in CLI of datalad
+            storage_sibling=True,
             new_store_ok=True,
         )
 
@@ -264,6 +268,19 @@ class BABSBootstrap(BABS):
             name=container_name,
             image=op.join('containers', image_path),
             call_fmt=call_fmt,
+        )
+
+        # Push container content to input RIA so ephemeral clones can access it
+        # via symlink. This avoids concurrent datalad get failures:
+        # https://git-annex.branchable.com/bugs/concurrent_get_from_separate_clones_fails/
+        # TODO: If BIDS apps need shared input data (e.g., templates, atlases), we may
+        # need to push that here too. Ask upstream if this is a known issue.
+        print('\nPushing container to input RIA...')
+        container_image_full_path = op.join(self.analysis_path, 'containers', image_path)
+        dlapi.push(
+            dataset=self.analysis_path,
+            to='input',
+            path=container_image_full_path,
         )
 
         # Create initial container for sanity check

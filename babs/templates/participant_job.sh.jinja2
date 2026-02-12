@@ -36,8 +36,10 @@ mkdir "${BRANCH}"
 cd "${BRANCH}"
 
 # datalad clone the input ria:
+# --reckless ephemeral: .git/annex symlinks to RIA's annex, avoiding concurrent
+# datalad get failures (container content pre-pushed to RIA during babs init)
 echo '# Clone the data from input RIA:'
-datalad clone "${dssource}" ds
+datalad clone --reckless ephemeral "${dssource}" ds
 cd ds
 
 # set up the result deposition:
@@ -70,8 +72,8 @@ datalad get -n "{{ input_dataset['path_in_babs'] }}"
 
 {{ zip_locator_text }}
 
-# Fetch container image (not resolved automatically through RIA clone chain)
-datalad get "{{ container_image_path }}"
+# Install containers subdataset (content accessible via ephemeral symlink to RIA)
+datalad get -n containers
 
 # Step 1: Run BIDS app via containers-run
 mkdir -p "${PWD}/.git/tmp/wkdir"
