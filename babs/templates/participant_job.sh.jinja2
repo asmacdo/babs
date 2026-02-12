@@ -35,12 +35,9 @@ BRANCH="job-${%raw%}{{%endraw%}{{varname_jobid}}{%raw%}}{%endraw%}-${%raw%}{{%en
 mkdir "${BRANCH}"
 cd "${BRANCH}"
 
-# datalad clone the analysis dataset:
-# --reckless ephemeral: .git/annex symlinks to source's annex, avoiding concurrent
-# datalad get failures: https://git-annex.branchable.com/bugs/concurrent_get_from_separate_clones_fails/
-# TODO: ephemeral may not be necessary here since top-level has no data, only subdatasets
+# datalad clone the analysis dataset (no data at top level, only subdatasets)
 echo '# Clone the analysis dataset:'
-datalad clone --reckless ephemeral "${dssource}" ds
+datalad clone "${dssource}" ds
 cd ds
 
 # set up the result deposition:
