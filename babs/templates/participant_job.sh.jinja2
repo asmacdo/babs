@@ -125,6 +125,8 @@ echo '# Push the branch with provenance records:'
 flock "${DSLOCKFILE}" git push outputstore
 
 # Delete:
+# Remove ephemeral containers first (symlinked annex can't be dropped)
+rm -rf containers
 datalad drop -r . --reckless availability --reckless modification
 
 git annex dead here
