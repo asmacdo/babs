@@ -10,7 +10,7 @@
 set -e -u -x
 
 # Inputs of the bash script:
-dssource="$1"	# i.e., `input_ria`
+dssource="$1"	# analysis dataset path
 pushgitremote="$2"	# i.e., `output_ria`
 SUBJECT_CSV="$3"
 
@@ -35,10 +35,11 @@ BRANCH="job-${%raw%}{{%endraw%}{{varname_jobid}}{%raw%}}{%endraw%}-${%raw%}{{%en
 mkdir "${BRANCH}"
 cd "${BRANCH}"
 
-# datalad clone the input ria:
-# --reckless ephemeral: .git/annex symlinks to RIA's annex, avoiding concurrent
-# datalad get failures (container content pre-pushed to RIA during babs init)
-echo '# Clone the data from input RIA:'
+# datalad clone the analysis dataset:
+# --reckless ephemeral: .git/annex symlinks to source's annex, avoiding concurrent
+# datalad get failures: https://git-annex.branchable.com/bugs/concurrent_get_from_separate_clones_fails/
+# TODO: ephemeral may not be necessary here since top-level has no data, only subdatasets
+echo '# Clone the analysis dataset:'
 datalad clone --reckless ephemeral "${dssource}" ds
 cd ds
 
@@ -72,8 +73,8 @@ datalad get -n "{{ input_dataset['path_in_babs'] }}"
 
 {{ zip_locator_text }}
 
-# Install containers subdataset (content accessible via ephemeral symlink to RIA)
-datalad get -n containers
+# Install containers subdataset with ephemeral clone (symlinks to source annex)
+datalad get -n --reckless ephemeral containers
 
 # Step 1: Run BIDS app via containers-run
 mkdir -p "${PWD}/.git/tmp/wkdir"

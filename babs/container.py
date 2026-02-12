@@ -260,8 +260,11 @@ class Container:
 
         # Variables to use:
         if not test:
-            # `dssource`: Input RIA:
-            dssource = babs.input_ria_url + '#' + babs.analysis_dataset_id
+            # `dssource`: Analysis dataset path for ephemeral clones
+            # Using direct path instead of input RIA so --reckless ephemeral
+            # can symlink .git/annex to source, avoiding concurrent get failures:
+            # https://git-annex.branchable.com/bugs/concurrent_get_from_separate_clones_fails/
+            dssource = babs.analysis_path
             # `pushgitremote`: Output RIA:
             pushgitremote = babs.output_ria_data_dir
 
