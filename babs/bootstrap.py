@@ -262,19 +262,15 @@ class BABSBootstrap(BABS):
         args_str = ' '.join(singularity_args)
         call_fmt = f"singularity run -B $PWD --pwd $PWD {args_str} {{img}} {{cmd}}"
 
+        container_image_path = op.join('containers', image_path)
+
         # Register at analysis level
         dlapi.containers_add(
             dataset=self.analysis_path,
             name=container_name,
-            image=op.join('containers', image_path),
+            image=container_image_path,
             call_fmt=call_fmt,
         )
-
-        # Create initial container for sanity check
-        container = Container(container_ds, container_name, container_config)
-
-        # sanity check of container ds:
-        container.sanity_check(self.analysis_path)
 
         # ==============================================================
         # Bootstrap scripts:
@@ -296,12 +292,13 @@ class BABSBootstrap(BABS):
             # Use first container for compatibility with existing code
             container = containers[0]
         else:
-            container_image_path = op.join('containers', image_path)
             self._bootstrap_single_app_scripts(
                 container_ds, container_name, container_config, system,
                 container_image_path=container_image_path,
             )
-            container = Container(container_ds, container_name, container_config)
+            container = Container(container_ds, container_name, container_config,
+                                  container_image_path=container_image_path)
+            container.sanity_check(self.analysis_path)
 
         # Copy in any other files needed:
         self._init_import_files(container.config.get('imported_files', []))
