@@ -109,6 +109,7 @@ datalad run \
 	--explicit \
 	-m "Zip ${subid}{% if processing_level == 'session' %} ${sesid}{% endif %}" \
 	--input "{{ bids_app_output_dir }}" \
+	--output "{{ bids_app_output_dir }}" \
 {% for key, value in zip_foldernames.items() %}
 	--output "${subid}{% if processing_level == 'session' %}_${sesid}{% endif %}_{{ key }}-{{ value }}.zip" \
 {% endfor %}
