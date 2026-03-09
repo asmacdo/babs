@@ -272,6 +272,14 @@ class BABSBootstrap(BABS):
             call_fmt=call_fmt,
         )
 
+        # Fetch container image content so ephemeral clones at job time
+        # can access it via symlink without a concurrent datalad get
+        print('\nFetching container image...')
+        dlapi.get(
+            dataset=self.analysis_path,
+            path=op.join(self.analysis_path, container_image_path),
+        )
+
         # ==============================================================
         # Bootstrap scripts:
         # ==============================================================
