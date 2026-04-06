@@ -127,8 +127,6 @@ class BABSBootstrap(BABS):
             os.remove(gitignore_path)
         gitignore_file = open(gitignore_path, 'a')  # open in append mode
 
-        # not to track `logs` folder:
-        gitignore_file.write('\nlogs')
         # not to track `.*_datalad_lock`:
         gitignore_file.write('\n.*_datalad_lock')
         # not to track lock file:
@@ -247,7 +245,7 @@ class BABSBootstrap(BABS):
             user_config = yaml.safe_load(f)
         singularity_args = user_config.get('singularity_args', [])
         singularity_args_str = ' '.join(singularity_args) if singularity_args else ''
-        call_fmt = f'singularity run -B $PWD --pwd $PWD {singularity_args_str} {{img}} {{cmd}}'
+        call_fmt = f'duct --output-prefix $DUCT_PREFIX singularity run -B $PWD --pwd $PWD {singularity_args_str} {{img}} {{cmd}}'
 
         # Register container at analysis level so datalad containers-run works:
         print(f'\nRegistering container at analysis level: {container_image_path}')
