@@ -245,7 +245,7 @@ class BABSBootstrap(BABS):
             user_config = yaml.safe_load(f)
         singularity_args = user_config.get('singularity_args', [])
         singularity_args_str = ' '.join(singularity_args) if singularity_args else ''
-        call_fmt = f'duct --output-prefix $DUCT_PREFIX singularity run -B $PWD --pwd $PWD {singularity_args_str} {{img}} {{cmd}}'
+        call_fmt = f'duct singularity run -B $PWD --pwd $PWD {singularity_args_str} {{img}} {{cmd}}'
 
         # Register container at analysis level so datalad containers-run works:
         print(f'\nRegistering container at analysis level: {container_image_path}')

@@ -125,7 +125,7 @@ if [ ! -L "${CONTAINER_JOB}" ]; then
   exit 1
 fi
 
-export DUCT_PREFIX="logs/duct_{% raw %}${subid}{% endraw %}{% if processing_level == 'session' %}_{% raw %}${sesid}{% endraw %}{% endif %}_"
+export DUCT_OUTPUT_PREFIX="logs/duct_{% raw %}${subid}{% endraw %}{% if processing_level == 'session' %}_{% raw %}${sesid}{% endraw %}{% endif %}_"
 
 # Step 1: Run BIDS app via containers-run
 datalad containers-run \
