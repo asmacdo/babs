@@ -157,6 +157,7 @@ class Container:
         processing_level,
         system,
         project_root=None,
+        analysis_relpath='analysis',
         shared_group_mode=False,
     ):
         """Generate bash script for participant job.
@@ -172,8 +173,13 @@ class Container:
         system: class `System`
             information on cluster management system
         project_root : str, optional
-            Absolute path to the BABS project root (parent of `analysis/`).
-            Shown in the script error message when PROJECT_ROOT is unset.
+            Absolute path to the BABS project root. Baked into the generated
+            script as the default `BABS_PROJECT_ROOT` when it is not passed at
+            submit time.
+        analysis_relpath : str, optional
+            Path to the analysis dataset relative to `project_root`. `'analysis'`
+            for the default layout, `'.'` for the BIDS study layout. Combined
+            with `BABS_PROJECT_ROOT` in the script to locate the analysis dataset.
         shared_group_mode : bool, optional
             If True, align generated script permissions with shared-group mode.
         """
@@ -188,6 +194,7 @@ class Container:
             container_name=self.container_name,
             zip_foldernames=self.config['zip_foldernames'],
             project_root=project_root,
+            analysis_relpath=analysis_relpath,
         )
 
         with open(bash_path, 'w') as f:
@@ -258,7 +265,7 @@ class Container:
                 '--export=DSLOCKFILE='
                 + babs.analysis_path
                 + '/.SLURM_datalad_lock'
-                + ',PROJECT_ROOT='
+                + ',BABS_PROJECT_ROOT='
                 + babs.project_root
             )
         else:
@@ -289,13 +296,15 @@ class Container:
         # Now, we can define stdout and stderr file names/paths:
         if system.type == 'slurm':
             # slurm clusters also need exact filenames:
+            # Quote the log paths so an analysis_path containing spaces stays a
+            # single argv token once the cmd_template is shlex.split at submit.
             eo_args = (
-                '-e '
+                '-e "'
                 + babs.analysis_path
-                + f'/logs/{job_name}.e%A_%a '
-                + '-o '
+                + f'/logs/{job_name}.e%A_%a" '
+                + '-o "'
                 + babs.analysis_path
-                + f'/logs/{job_name}.o%A_%a'
+                + f'/logs/{job_name}.o%A_%a"'
             )
             # array task id starts from 0 so that max_array == count
             if test:  # no max_array for `submit_test_job_template.yaml`

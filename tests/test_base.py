@@ -5,15 +5,18 @@ import os
 import os.path as op
 import random
 import re
+import shlex
 import stat
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 import yaml
 from conftest import get_config_simbids_path, update_yaml_for_run
+from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from babs import BABSCheckSetup
 from babs.base import BABS, CONFIG_SECTIONS
@@ -410,3 +413,211 @@ def test_shared_group_inits_analysis_and_rias(
     ).stdout.splitlines()
     assert str(Path(babs_bootstrap.analysis_path).resolve()) in safe_dirs
     assert str(output_ria_dir.resolve()) in safe_dirs
+
+
+def _write_init_config(config_path, body):
+    """Write a minimal `babs init` config YAML for path-derivation tests."""
+    with open(config_path, 'w') as f:
+        f.write(body)
+
+
+@pytest.mark.parametrize(
+    'raw_value',
+    [
+        '/absolute/outside',
+        '../outside',
+        '',
+        '   ',
+    ],
+)
+def test_analysis_path_rejects_unsafe_values(tmp_path, raw_value):
+    """`analysis_path` that is absolute, empty, or escapes project_root is rejected.
+
+    Guards against a config writing the analysis dataset outside project_root,
+    where BABS cleanup would not reach it.
+    """
+    config_path = tmp_path / 'config.yaml'
+    _write_init_config(config_path, f'analysis_path: {raw_value!r}\n')
+    project_root = tmp_path / 'proj'
+    project_root.mkdir()
+
+    with pytest.raises(ValueError, match='analysis_path'):
+        BABSBootstrap(str(project_root), container_config=str(config_path))
+
+
+@pytest.mark.parametrize('key', ['input_ria_path', 'output_ria_path'])
+def test_ria_paths_reject_escaping(tmp_path, key):
+    """RIA store paths that escape project_root via `..` are rejected."""
+    config_path = tmp_path / 'config.yaml'
+    _write_init_config(config_path, f'{key}: "../escaping_ria"\n')
+    project_root = tmp_path / 'proj'
+    project_root.mkdir()
+
+    with pytest.raises(ValueError, match=key):
+        BABSBootstrap(str(project_root), container_config=str(config_path))
+
+
+def test_bids_study_layout_paths_resolve_inside_project(tmp_path):
+    """`analysis_path: "."` plus `.babs/` RIA stores resolve inside project_root."""
+    config_path = tmp_path / 'config.yaml'
+    _write_init_config(
+        config_path,
+        'analysis_path: "."\n'
+        'input_ria_path: ".babs/input_ria"\n'
+        'output_ria_path: ".babs/output_ria"\n',
+    )
+    project_root = tmp_path / 'proj'
+    project_root.mkdir()
+
+    babs_proj = BABSBootstrap(str(project_root), container_config=str(config_path))
+
+    assert babs_proj.analysis_path == str(project_root)
+    assert babs_proj.input_ria_path == str(project_root / '.babs' / 'input_ria')
+    assert babs_proj.output_ria_path == str(project_root / '.babs' / 'output_ria')
+
+
+@pytest.mark.parametrize(
+    'body',
+    [
+        '',  # empty file -> yaml.safe_load returns None
+        '- not\n- a\n- mapping\n',  # a sequence, not a mapping
+    ],
+)
+def test_non_mapping_config_raises_clear_error(tmp_path, body):
+    """A config file that is empty or not a mapping raises a clear error.
+
+    Previously an empty YAML parsed to `None` and produced an opaque
+    `AttributeError` on `cfg.get(...)`.
+    """
+    config_path = tmp_path / 'config.yaml'
+    _write_init_config(config_path, body)
+    project_root = tmp_path / 'proj'
+    project_root.mkdir()
+
+    with pytest.raises(ValueError, match='YAML mapping'):
+        BABSBootstrap(str(project_root), container_config=str(config_path))
+
+
+def test_cmd_template_survives_spaces_in_paths():
+    """Paths containing spaces stay single argv tokens after `shlex.split`.
+
+    Renders `job_submit.yaml.jinja2` with a project root that contains a
+    space and asserts each path is recovered as one token, matching how
+    `babs.scheduler` parses the template at submit time.
+    """
+    project_root = '/base/my project'
+    analysis_path = project_root + '/analysis'
+    babs = SimpleNamespace(
+        analysis_path=analysis_path,
+        job_submit_path_abs=analysis_path + '/code/job_submit.csv',
+        project_root=project_root,
+    )
+    env = Environment(
+        loader=PackageLoader('babs', 'templates'),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=False,
+        undefined=StrictUndefined,
+    )
+    template = env.get_template('job_submit.yaml.jinja2')
+    rendered = template.render(
+        test=False,
+        submit_head='sbatch',
+        env_flags=(
+            f'--export=DSLOCKFILE={analysis_path}/.SLURM_datalad_lock'
+            f',BABS_PROJECT_ROOT={project_root}'
+        ),
+        name_flag_str=' --job-name ',
+        job_name='sim',
+        eo_args=(f'-e "{analysis_path}/logs/sim.e%A_%a" -o "{analysis_path}/logs/sim.o%A_%a"'),
+        array_args='--array=1-${max_array}',
+        babs=babs,
+        dssource=f'ria+file://{project_root}/.babs/input_ria#~data',
+        pushgitremote=f'ria+file://{project_root}/.babs/output_ria#~data',
+    )
+
+    cmd_template = yaml.safe_load(rendered)['cmd_template']
+    cmd = cmd_template.replace('${max_array}', '5')
+    argv = shlex.split(cmd)
+
+    # Each space-containing path survives as exactly one token:
+    assert f'{analysis_path}/code/participant_job.sh' in argv
+    assert project_root in argv
+    assert f'{analysis_path}/code/job_submit.csv' in argv
+    assert f'ria+file://{project_root}/.babs/input_ria#~data' in argv
+    assert f'ria+file://{project_root}/.babs/output_ria#~data' in argv
+    # The export flag and both log paths survive too:
+    assert (
+        f'--export=DSLOCKFILE={analysis_path}/.SLURM_datalad_lock,BABS_PROJECT_ROOT={project_root}'
+        in argv
+    )
+    assert f'{analysis_path}/logs/sim.e%A_%a' in argv
+    assert f'{analysis_path}/logs/sim.o%A_%a' in argv
+
+
+def test_bootstrap_rederives_paths_from_config(tmp_path):
+    """Re-deriving paths honors a custom `analysis_path` set only via the config.
+
+    Reproduces the direct-API pattern (`BABSBootstrap(project_root)` then
+    `babs_bootstrap(..., container_config=...)`): the constructor sees the
+    default layout, and the re-derivation `babs_bootstrap` performs must pick
+    up the config's custom paths rather than silently ignoring them.
+    """
+    project_root = tmp_path / 'proj'
+    project_root.mkdir()
+
+    # Constructed without a config -> default layout.
+    babs_proj = BABSBootstrap(str(project_root))
+    assert babs_proj.analysis_path == str(project_root / 'analysis')
+
+    # A config selecting the BIDS study layout.
+    config_path = tmp_path / 'config.yaml'
+    _write_init_config(
+        config_path,
+        'analysis_path: "."\n'
+        'input_ria_path: ".babs/input_ria"\n'
+        'output_ria_path: ".babs/output_ria"\n',
+    )
+
+    # Re-derivation (what `babs_bootstrap` runs) picks up the custom paths.
+    babs_proj._set_project_paths(str(config_path))
+    assert babs_proj.analysis_path == str(project_root)
+    assert babs_proj.input_ria_path == str(project_root / '.babs' / 'input_ria')
+    assert babs_proj.config_path == op.join(str(project_root), 'code/babs_proj_config.yaml')
+
+
+def test_readme_input_location_rewritten_for_bids_layout(tmp_path):
+    """The yoda README `inputs/` wording becomes the actual input root (BIDS layout)."""
+    babs_proj = object.__new__(BABSBootstrap)
+    babs_proj.analysis_path = str(tmp_path)
+    babs_proj.input_datasets = [SimpleNamespace(path_in_babs='sourcedata/fmriprep_anat')]
+    readme = tmp_path / 'README.md'
+    readme.write_text(
+        '## Dataset structure\n\n'
+        '- All inputs (i.e. building blocks from other sources) are located in\n'
+        '  `inputs/`.\n'
+    )
+
+    with patch.object(BABSBootstrap, 'datalad_save') as mock_save:
+        babs_proj._update_readme_input_location()
+
+    content = readme.read_text()
+    assert '`sourcedata/`' in content
+    assert '`inputs/`' not in content
+    mock_save.assert_called_once()
+
+
+def test_readme_input_location_untouched_for_default_layout(tmp_path):
+    """The default `inputs/data/...` layout leaves the README wording unchanged."""
+    babs_proj = object.__new__(BABSBootstrap)
+    babs_proj.analysis_path = str(tmp_path)
+    babs_proj.input_datasets = [SimpleNamespace(path_in_babs='inputs/data/BIDS')]
+    readme = tmp_path / 'README.md'
+    original = '- All inputs are located in\n  `inputs/`.\n'
+    readme.write_text(original)
+
+    with patch.object(BABSBootstrap, 'datalad_save') as mock_save:
+        babs_proj._update_readme_input_location()
+
+    assert readme.read_text() == original
+    mock_save.assert_not_called()
