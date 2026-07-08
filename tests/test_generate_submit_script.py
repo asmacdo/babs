@@ -122,7 +122,7 @@ def test_generate_submit_script(input_datasets, config_file, processing_level, t
 
 PRE_RUN_MARKER = '# pre_run hooks:'
 POST_RUN_MARKER = '# post_run hooks:'
-CONTRACT_EXPORT = 'export subid BRANCH PROJECT_ROOT JOB_SCRATCH_DIR'
+CONTRACT_EXPORT = 'export subid BRANCH BABS_PROJECT_ROOT JOB_SCRATCH_DIR'
 
 
 def _render_with_hooks(processing_level='subject', **hook_kwargs):

@@ -135,7 +135,7 @@ done
 {% if hook_pre_run %}
 # pre_run hooks: spliced before the datalad run wrapper; subshell exports the contract.
 (
-  export subid BRANCH PROJECT_ROOT JOB_SCRATCH_DIR
+  export subid BRANCH BABS_PROJECT_ROOT JOB_SCRATCH_DIR
 {% if processing_level == 'session' %}
   export sesid
 {% endif %}
@@ -176,7 +176,7 @@ datalad run \
 {% if hook_post_run %}
 # post_run hooks: spliced after the run, before push; subshell exports the contract.
 (
-  export subid BRANCH PROJECT_ROOT JOB_SCRATCH_DIR
+  export subid BRANCH BABS_PROJECT_ROOT JOB_SCRATCH_DIR
 {% if processing_level == 'session' %}
   export sesid
 {% endif %}

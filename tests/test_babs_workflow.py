@@ -81,7 +81,7 @@ def test_babs_init_raw_bids(
     contract_guard.write_text(
         ': "${subid:?contract guard: subid not exported}"\n'
         ': "${BRANCH:?contract guard: BRANCH not exported}"\n'
-        ': "${PROJECT_ROOT:?contract guard: PROJECT_ROOT not exported}"\n'
+        ': "${BABS_PROJECT_ROOT:?contract guard: BABS_PROJECT_ROOT not exported}"\n'
         ': "${JOB_SCRATCH_DIR:?contract guard: JOB_SCRATCH_DIR not exported}"\n'
     )
     with open(container_config) as f:
