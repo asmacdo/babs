@@ -25,12 +25,15 @@ def generate_submit_script(
     input_datasets,
     processing_level,
     container_name,
-    zip_foldernames,
+    zip_foldernames=None,
+    output_dir=None,
     run_script_relpath=None,
     container_images=None,
     datalad_run_message=None,
     project_root=None,
     analysis_relpath='analysis',
+    hook_pre_run=None,
+    hook_post_run=None,
 ):
     """
     Generate a bash script that runs the BIDS App singularity image.
@@ -51,8 +54,13 @@ def generate_submit_script(
         Processing level ('subject' or 'session').
     container_name : str
         Name of the container.
-    zip_foldernames : dict
-        Dictionary mapping output names to versions.
+    zip_foldernames : dict, optional
+        Dictionary mapping output names to versions. Pipeline mode only: the
+        ``datalad run`` declares the corresponding per-subject zips as outputs.
+    output_dir : str, optional
+        Single-app mode: the app output folder, declared as the ``datalad run``
+        output (the run commits granular outputs; zipping is a ``post_run``
+        hook). Mutually exclusive with ``zip_foldernames``.
     run_script_relpath : str, optional
         Path to script executed by datalad run. None for single-app mode.
     container_images : list, optional
@@ -67,6 +75,12 @@ def generate_submit_script(
         Path to the analysis dataset relative to `project_root` (`'analysis'`
         for the default layout, `'.'` for the BIDS study layout). Combined with
         `BABS_PROJECT_ROOT` in the script to locate the analysis dataset.
+    hook_pre_run : list of str, optional
+        Shell snippets spliced into a subshell just before the ``datalad run``
+        wrapper. None (or empty) renders nothing. Snippets are emitted in order.
+    hook_post_run : list of str, optional
+        Shell snippets spliced into a subshell just after the ``datalad run``
+        wrapper, before the push. None (or empty) renders nothing.
 
     Returns
     -------
@@ -124,6 +138,7 @@ def generate_submit_script(
         zip_locator_text=zip_locator_text,
         container_name=container_name,
         zip_foldernames=zip_foldernames,
+        output_dir=output_dir,
         varname_jobid=varname_jobid,
         varname_taskid=varname_taskid,
         input_datasets=input_datasets,
@@ -135,6 +150,8 @@ def generate_submit_script(
         datalad_run_message=datalad_run_message,
         project_root=project_root,
         analysis_relpath=analysis_relpath,
+        hook_pre_run=hook_pre_run,
+        hook_post_run=hook_post_run,
     )
 
 

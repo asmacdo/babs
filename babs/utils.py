@@ -238,6 +238,57 @@ def app_output_settings_from_config(config):
     return config['zip_foldernames'], bids_app_output_dir
 
 
+def output_dir_from_config(config):
+    """
+    Get the BIDS App output directory from the top-level `output_dir` key.
+
+    Single-app mode only; pipeline mode still derives its folders from
+    `zip_foldernames` (via `app_output_settings_from_config`) and goes away
+    with pipeline mode. `output_dir` is the folder the BIDS App writes into,
+    relative to the dataset root, carrying the full versioned derivative name
+    (e.g. `outputs/fmriprep-24-1-1`). It is the single source for the app
+    write dir, the `datalad run` output declaration, and the default folder
+    the built-in `zip` hook archives.
+
+    Parameters
+    ----------
+    config: dictionary
+        attribute `config` in class Container;
+
+    Returns
+    -------
+    output_dir: str
+        the normalized `output_dir` value.
+
+    Raises
+    ------
+    ValueError
+        if the removed `zip_foldernames` / `all_results_in_one_zip` keys are
+        present, or `output_dir` is missing or not a relative in-dataset path.
+    """
+    legacy = [key for key in ('zip_foldernames', 'all_results_in_one_zip') if key in config]
+    if legacy:
+        raise ValueError(
+            f'Config key(s) {legacy} are no longer supported. Declare the BIDS App'
+            " output folder with a top-level `output_dir` (e.g. 'outputs/fmriprep-24-1-1')"
+            ' and configure zipping as a post_run hook:'
+            ' `hooks: {post_run: [{builtin: zip}]}`.'
+        )
+    output_dir = config.get('output_dir')
+    if not output_dir or not isinstance(output_dir, str):
+        raise ValueError(
+            'The container config needs a top-level `output_dir`: the folder the'
+            ' BIDS App writes into, relative to the dataset root'
+            " (e.g. 'outputs/fmriprep-24-1-1')."
+        )
+    normalized = os.path.normpath(output_dir)
+    if os.path.isabs(normalized) or normalized.startswith('..') or normalized == '.':
+        raise ValueError(
+            f'`output_dir` must be a relative path inside the dataset, got {output_dir!r}.'
+        )
+    return normalized
+
+
 def get_username():
     """
     Get the current username.
@@ -338,9 +389,11 @@ def get_git_show_ref_shasum(branch_name, the_path):
 
 def get_results_branches(ria_directory):
     """
-    Get branch list from git repository.
+    Map each ``job-*`` results branch to its tip commit SHA.
 
-    If no branches are found, an empty list is returned.
+    Returns ``{branch_name: sha}`` (the SHA is the job's result commit, recorded
+    into ``has_results``). One ``git for-each-ref`` call; empty dict if no
+    branches are found. Callers that only need the names can iterate the keys.
 
     Parameters:
     --------------
@@ -348,22 +401,19 @@ def get_results_branches(ria_directory):
         path to the git (or datalad) repository
 
     """
-    branch_output = subprocess.run(
-        ['git', 'branch', '--list'],
+    out = subprocess.run(
+        ['git', 'for-each-ref', '--format=%(objectname) %(refname:short)', 'refs/heads/job-*'],
         cwd=ria_directory,
         capture_output=True,
         text=True,
     )
 
-    # Filter to just branches starting with 'job-'
-    branches = [
-        # Remove leading and trailing asterisks and spaces
-        b.strip().replace('* ', '')
-        for b in branch_output.stdout.strip().split('\n')
-        if b.strip().replace('* ', '').startswith('job-')
-    ]
-
-    return branches
+    branch_to_sha = {}
+    for line in out.stdout.strip().splitlines():
+        sha, _, name = line.strip().partition(' ')
+        if name.startswith('job-'):
+            branch_to_sha[name] = sha
+    return branch_to_sha
 
 
 def get_results_branches_from_clone(clone_path):

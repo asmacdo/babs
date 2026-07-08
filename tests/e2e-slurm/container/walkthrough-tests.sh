@@ -50,7 +50,7 @@ cd /test-temp
 babs init \
     --container_ds "${PWD}"/simbids-container \
     --container_name simbids-0-0-3 \
-    --container_config "/tests/tests/e2e-slurm/container/config_simbids.yaml" \
+    --container_config "/tests/tests/e2e-slurm/container/config_simbids_zip.yaml" \
     --processing_level subject \
     --queue slurm \
     --keep-if-failed \
@@ -81,11 +81,12 @@ import csv, sys
 with open('analysis/code/job_status.csv') as f:
     for row in csv.DictReader(f):
         if row['submitted'].strip().lower() == 'true':
-            if row['has_results'].strip().lower() != 'true':
+            # has_results is False or the result-commit SHA; empty/false = no result
+            if row['has_results'].strip().lower() in ('', 'false'):
                 print(f'FAIL: {row[\"sub_id\"]} submitted but has_results={row[\"has_results\"]}')
                 sys.exit(1)
             if row['is_failed'].strip().lower() == 'true':
-                print(f'FAIL: {row[\"sub_id\"]} has_results=True but is_failed=True')
+                print(f'FAIL: {row[\"sub_id\"]} has_results set but is_failed=True')
                 sys.exit(1)
 print('PASSED: job_status.csv is consistent')
 "
@@ -119,11 +120,12 @@ import csv, sys
 with open('analysis/code/job_status.csv') as f:
     for row in csv.DictReader(f):
         if row['submitted'].strip().lower() == 'true':
-            if row['has_results'].strip().lower() != 'true':
+            # has_results is False or the result-commit SHA; empty/false = no result
+            if row['has_results'].strip().lower() in ('', 'false'):
                 print(f'FAIL: {row[\"sub_id\"]} submitted but has_results={row[\"has_results\"]}')
                 sys.exit(1)
             if row['is_failed'].strip().lower() == 'true':
-                print(f'FAIL: {row[\"sub_id\"]} has_results=True but is_failed=True')
+                print(f'FAIL: {row[\"sub_id\"]} has_results set but is_failed=True')
                 sys.exit(1)
 print('PASSED: job_status.csv is consistent (multiinput)')
 "

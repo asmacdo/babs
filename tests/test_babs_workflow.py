@@ -12,6 +12,7 @@ from unittest import mock
 
 import pandas as pd
 import pytest
+import yaml
 from conftest import (
     gather_slurm_job_diagnostics,
     get_config_simbids_path,
@@ -25,7 +26,7 @@ from babs.status import SchedulerState, read_job_status_csv
 from babs.utils import get_results_branches_from_clone
 
 
-@pytest.mark.timeout(450)
+@pytest.mark.timeout(900)
 @pytest.mark.parametrize('processing_level', ['subject', 'session'])
 def test_babs_init_raw_bids(
     tmp_path_factory,
@@ -69,6 +70,32 @@ def test_babs_init_raw_bids(
         },
     )
 
+    # Splice a contract-guard hook at both splice points. It's a script hook
+    # (`script:`, a separate process), so it only sees the contract vars because
+    # the splice subshell exports them; `${var:?}` fails the job under `set -e`
+    # if any guaranteed var is unset -- so this e2e goes red if a refactor ever
+    # breaks the splice contract. Reusing one source at pre_run + post_run also
+    # exercises copy-once dedup. (sesid is session-only, so it's not guarded
+    # here; its export is covered by the render-level test.)
+    contract_guard = project_base / 'contract_guard.sh'
+    contract_guard.write_text(
+        ': "${subid:?contract guard: subid not exported}"\n'
+        ': "${BRANCH:?contract guard: BRANCH not exported}"\n'
+        ': "${PROJECT_ROOT:?contract guard: PROJECT_ROOT not exported}"\n'
+        ': "${JOB_SCRATCH_DIR:?contract guard: JOB_SCRATCH_DIR not exported}"\n'
+    )
+    with open(container_config) as f:
+        cfg = yaml.safe_load(f)
+    # post_run order is load-bearing: the guard must run before zip flattens
+    # the outputs. The argless zip built-in archives `output_dir` and commits
+    # the archive itself, so this e2e also exercises the runtime zip path.
+    cfg['hooks'] = {
+        'pre_run': [{'script': str(contract_guard)}],
+        'post_run': [{'script': str(contract_guard)}, {'builtin': 'zip'}],
+    }
+    with open(container_config, 'w') as f:
+        yaml.safe_dump(cfg, f)
+
     babs_init_opts = argparse.Namespace(
         project_root=project_root,
         list_sub_file=None,
@@ -97,6 +124,15 @@ def test_babs_init_raw_bids(
     babs_init_opts.project_root = project_root
     with mock.patch.object(argparse.ArgumentParser, 'parse_args', return_value=babs_init_opts):
         _enter_init()
+
+    # The contract guard can only fail the job if it is actually wired in -- a
+    # dropped hook would leave no assertion to fail. So verify positively that
+    # the hook is materialized and spliced at both points before relying on it.
+    analysis_code = project_root / 'analysis' / 'code'
+    assert (analysis_code / 'hooks' / 'contract_guard.sh').exists()
+    participant_job = (analysis_code / 'participant_job.sh').read_text()
+    assert participant_job.count('bash ./code/hooks/contract_guard.sh') == 2
+    assert participant_job.count('bash ./code/hooks/zip.sh') == 1
 
     # babs check-setup:
     babs_check_setup_opts = argparse.Namespace(project_root=project_root, job_test=True)
@@ -137,7 +173,7 @@ def test_babs_init_raw_bids(
         _enter_status()
 
     finished = False
-    for waitnum in [5, 8, 10, 15, 30, 60, 120]:
+    for waitnum in [5, 8, 10, 15, 30, 60, 120, 120, 120]:
         time.sleep(waitnum)
         print(f'Waiting {waitnum} seconds...')
         df = squeue_to_pandas()
@@ -205,7 +241,7 @@ def test_babs_init_raw_bids(
 
     # Wait for all submitted jobs to finish before merging
     finished = False
-    for waitnum in [5, 8, 10, 15, 30, 60, 120]:
+    for waitnum in [5, 8, 10, 15, 30, 60, 120, 120, 120]:
         time.sleep(waitnum)
         print(f'Waiting for remaining jobs {waitnum} seconds...')
         df = squeue_to_pandas()
@@ -244,6 +280,138 @@ def test_babs_init_raw_bids(
                     )
                     raise ValueError(f'{e}\nJob accounting (sacct):\n{diag}') from e
                 raise
+
+
+@pytest.mark.timeout(300)
+def test_babs_init_single_app_hooks(
+    tmp_path_factory,
+    bids_data_singlesession,
+    simbids_container_ds,
+):
+    """`babs init` materializes hook scripts and splices them at both splice points.
+
+    This is the wiring check that backstops the runtime contract-guard hook in
+    test_babs_init_raw_bids: that guard can only fail the job if it is actually
+    in place, so a silently dropped hook would pass. Here we assert positively --
+    no job execution needed -- that a configured hook is copied into code/hooks/
+    and referenced from participant_job.sh at both pre_run and post_run.
+    """
+    project_base = tmp_path_factory.mktemp('hooks_project')
+    project_root = project_base / 'my_babs_project'
+
+    container_config = update_yaml_for_run(
+        project_base,
+        get_config_simbids_path().name,
+        {'BIDS': bids_data_singlesession},
+    )
+    hook = project_base / 'echo_hook.sh'
+    hook.write_text('echo hook-ran\n')
+    with open(container_config) as f:
+        cfg = yaml.safe_load(f)
+    cfg['hooks'] = {
+        'pre_run': [{'script': str(hook)}],
+        'post_run': [{'script': str(hook)}],
+    }
+    with open(container_config, 'w') as f:
+        yaml.safe_dump(cfg, f)
+
+    babs_init_opts = argparse.Namespace(
+        project_root=project_root,
+        list_sub_file=None,
+        container_ds=simbids_container_ds,
+        container_name='simbids-0-0-3',
+        container_config=container_config,
+        processing_level='subject',
+        queue='slurm',
+        keep_if_failed=False,
+    )
+    with mock.patch.object(argparse.ArgumentParser, 'parse_args', return_value=babs_init_opts):
+        _enter_init()
+
+    analysis_code = project_root / 'analysis' / 'code'
+    # Materialized once into code/hooks/ (same source at both points -> copy-once):
+    hook_in_ds = analysis_code / 'hooks' / 'echo_hook.sh'
+    assert hook_in_ds.exists()
+    assert hook_in_ds.read_text() == 'echo hook-ran\n'
+    # Spliced at both pre_run and post_run:
+    participant_job = (analysis_code / 'participant_job.sh').read_text()
+    assert participant_job.count('bash ./code/hooks/echo_hook.sh') == 2
+
+
+def test_babs_init_builtin_zip_hook(
+    tmp_path_factory,
+    bids_data_singlesession,
+    simbids_container_ds,
+):
+    """`babs init` copies the static zip built-in into code/hooks/ and splices it.
+
+    Init-level check of the argless ``{builtin: zip}`` form: the packaged
+    static hooks/zip.sh is copied in verbatim, committed to the analysis
+    dataset, and spliced at post_run with the resolved argument (``path``
+    defaulted from the config's top-level ``output_dir``) visible in
+    participant_job.sh.
+    """
+    project_base = tmp_path_factory.mktemp('zip_hook_project')
+    project_root = project_base / 'my_babs_project'
+
+    container_config = update_yaml_for_run(
+        project_base,
+        get_config_simbids_path().name,
+        {'BIDS': bids_data_singlesession},
+    )
+    with open(container_config) as f:
+        cfg = yaml.safe_load(f)
+    cfg['hooks'] = {
+        'post_run': [{'builtin': 'zip'}],
+    }
+    with open(container_config, 'w') as f:
+        yaml.safe_dump(cfg, f)
+
+    babs_init_opts = argparse.Namespace(
+        project_root=project_root,
+        list_sub_file=None,
+        container_ds=simbids_container_ds,
+        container_name='simbids-0-0-3',
+        container_config=container_config,
+        processing_level='subject',
+        queue='slurm',
+        keep_if_failed=False,
+    )
+    with mock.patch.object(argparse.ArgumentParser, 'parse_args', return_value=babs_init_opts):
+        _enter_init()
+
+    analysis = project_root / 'analysis'
+    zip_sh = analysis / 'code' / 'hooks' / 'zip.sh'
+    assert zip_sh.exists()
+    rendered = zip_sh.read_text()
+    # The static script is copied verbatim (subject-vs-session and archive
+    # naming are runtime concerns: sesid presence + the script's args):
+    packaged = Path(babs_base.__file__).parent / 'templates' / 'hooks' / 'zip.sh'
+    assert rendered == packaged.read_text()
+    # Spliced at post_run only, with path resolved from the config's
+    # output_dir into a visible argument; the run's -o declares the granular
+    # output_dir (the zip hook owns the archive commit):
+    participant_job = (analysis / 'code' / 'participant_job.sh').read_text()
+    assert participant_job.count('bash ./code/hooks/zip.sh outputs/fmriprep_anat-24-1-1') == 1
+    assert '-o "outputs/fmriprep_anat-24-1-1"' in participant_job
+    assert '.zip' not in participant_job
+    # Committed at init (static built-ins ride the imported-files path):
+    log = subprocess.run(
+        ['git', '-C', str(analysis), 'log', '--oneline'],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert 'Import files' in log
+
+    # TODO remove demo: persist rendered artifacts outside the container so
+    # they can be inspected after the docker run (the worktree is bind-mounted).
+    demo_dir = Path(__file__).parent.parent / 'demo-output'
+    demo_dir.mkdir(exist_ok=True)
+    (demo_dir / 'zip.sh').write_text(rendered)
+    (demo_dir / 'participant_job.sh').write_text(participant_job)
+    (demo_dir / 'analysis-git-log.txt').write_text(log)
+    # TODO remove demo end
 
 
 def test_init_forwards_shared_group(tmp_path):
@@ -344,6 +512,9 @@ def test_babs_init_list_sub_file(
         _enter_init()
 
     assert project_root.exists()
+    # No hooks configured -> no code/hooks/ dir is created (it's materialized
+    # lazily, only when a hook actually needs it).
+    assert not (project_root / 'analysis' / 'code' / 'hooks').exists()
     inclusion_csv = project_root / 'analysis' / 'code' / 'processing_inclusion.csv'
     assert inclusion_csv.exists()
     df = pd.read_csv(inclusion_csv)

@@ -14,10 +14,12 @@ from babs.utils import (
     get_git_show_ref_shasum,
     get_immediate_subdirectories,
     get_repo_hash,
+    get_results_branches,
     get_results_branches_from_clone,
     get_results_branches_from_ria,
     get_username,
     identify_running_jobs,
+    output_dir_from_config,
     parse_select_arg,
     read_yaml,
     replace_placeholder_from_config,
@@ -96,6 +98,34 @@ def test_app_output_settings_from_config():
         app_output_settings_from_config(multiple_folders_config)
 
 
+def test_output_dir_from_config():
+    """Test output_dir_from_config: the single-app `output_dir` contract."""
+    assert (
+        output_dir_from_config({'output_dir': 'outputs/fmriprep-24-1-1'})
+        == 'outputs/fmriprep-24-1-1'
+    )
+    # Normalized (a trailing slash would break basename-derived zip names):
+    assert (
+        output_dir_from_config({'output_dir': 'outputs/fmriprep-24-1-1/'})
+        == 'outputs/fmriprep-24-1-1'
+    )
+
+    # The removed legacy keys hard-error with a migration message:
+    with pytest.raises(ValueError, match='no longer supported'):
+        output_dir_from_config({'zip_foldernames': {'a': '1'}, 'output_dir': 'outputs'})
+    with pytest.raises(ValueError, match='no longer supported'):
+        output_dir_from_config({'all_results_in_one_zip': True, 'output_dir': 'outputs'})
+
+    # Missing or non-string:
+    with pytest.raises(ValueError, match='needs a top-level `output_dir`'):
+        output_dir_from_config({})
+
+    # Must stay a relative in-dataset path:
+    for bad in ('/abs/outputs', '../escape', '.'):
+        with pytest.raises(ValueError, match='relative path'):
+            output_dir_from_config({'output_dir': bad})
+
+
 def create_git_repo(tmp_path):
     """Helper function to create a git repository."""
     repo_path = tmp_path / 'git_repo'
@@ -164,6 +194,24 @@ def test_git_show_ref_shasum(tmp_path):
     # Test with non-existent branch
     with pytest.raises(subprocess.CalledProcessError):
         get_git_show_ref_shasum('nonexistent-branch', repo_path)
+
+
+def test_get_results_branches(tmp_path):
+    """get_results_branches maps each job-* branch to its tip SHA, skipping non-job refs."""
+    with patch('babs.utils.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=('aaa111 job-0001-sub-01\nbbb222 job-0002-sub-02\nccc333 main\n'),
+            stderr='',
+        )
+        result = get_results_branches(str(tmp_path))
+    assert result == {'job-0001-sub-01': 'aaa111', 'job-0002-sub-02': 'bbb222'}
+    mock_run.assert_called_once_with(
+        ['git', 'for-each-ref', '--format=%(objectname) %(refname:short)', 'refs/heads/job-*'],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_get_results_branches_from_clone(tmp_path):

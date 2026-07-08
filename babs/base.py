@@ -4,7 +4,6 @@ import configparser
 import os
 import os.path as op
 import subprocess
-from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -12,12 +11,13 @@ import datalad.api as dlapi
 import pandas as pd
 import yaml
 
-from babs.input_datasets import InputDatasets, OutputDatasets
+from babs.input_datasets import InputDatasets
 from babs.scheduler import (
     request_all_job_status,
     run_squeue,
 )
 from babs.status import (
+    _parse_has_results,
     read_job_status_csv,
     update_from_branches,
     update_from_scheduler,
@@ -387,12 +387,6 @@ class BABS:
             message='Record of inclusion/exclusion of participants/sessions',
         )
 
-    def _get_merged_results_from_analysis_dir(self) -> pd.DataFrame:
-        """Get the results from the analysis directory."""
-        output_datasets = OutputDatasets(self.input_datasets)
-        out_df = output_datasets.generate_inclusion_dataframe()
-        return out_df
-
     def wtf_key_info(self, flag_output_ria_only=False) -> None:
         """
         This is to get some key information on DataLad dataset `analysis`,
@@ -620,8 +614,11 @@ class BABS:
             # ^^ "notneeded": nothing to save
             raise Exception('`datalad save` failed!')
 
-    def _get_results_branches(self) -> list[str]:
-        """Get the results branch names from the output RIA in a list."""
+    def _get_results_branches(self) -> dict[str, str]:
+        """Map each results branch in the output RIA to its tip commit SHA.
+
+        Callers that only need names can iterate the keys.
+        """
         return get_results_branches(self.output_ria_data_dir)
 
     def _update_results_status(self) -> dict:
@@ -638,18 +635,12 @@ class BABS:
         else:
             statuses = {}
 
-        # Update from results branches in output RIA
-        branches = self._get_results_branches()
-        statuses = update_from_branches(statuses, branches)
-
-        # Update from merged zip files in analysis dir
-        merged_zip_df = self._get_merged_results_from_analysis_dir()
-        if not merged_zip_df.empty:
-            for _, row in merged_zip_df.iterrows():
-                ses_id = row.get('ses_id') if 'ses_id' in merged_zip_df.columns else None
-                key = (row['sub_id'], ses_id) if ses_id else (row['sub_id'],)
-                if key in statuses:
-                    statuses[key] = replace(statuses[key], has_results=True)
+        # Update from results branches in output RIA. Pre-merge each finished
+        # job pushes a `job-*` branch (detected here); `babs merge` records the
+        # merged result SHAs into the csv before deleting those branches, so
+        # has_results survives post-merge without a separate merged-zip scan.
+        branch_to_sha = self._get_results_branches()
+        statuses = update_from_branches(statuses, branch_to_sha)
 
         # Update from scheduler (squeue)
         job_ids = sorted(
@@ -778,6 +769,12 @@ class BABS:
         if not op.exists(self.job_status_path_abs):
             return EMPTY_JOB_STATUS_DF
         df = pd.read_csv(self.job_status_path_abs)
+        # has_results is stored as `False` or a result-commit SHA; the dataframe
+        # layer only needs its truthiness (the SHA lives in the JobStatus/csv
+        # record), so collapse it to bool before the boolean cast below.
+        df['has_results'] = df['has_results'].apply(
+            lambda v: bool(_parse_has_results(str(v))) if pd.notna(v) else False
+        )
         for column_name in results_status_columns:
             df[column_name] = df[column_name].astype(status_dtypes[column_name])
 

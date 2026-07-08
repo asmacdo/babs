@@ -14,11 +14,13 @@ from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from babs.base import BABS
 from babs.container import Container
+from babs.hooks import resolve_hooks
 from babs.input_datasets import InputDatasets
 from babs.status import create_initial_statuses, write_job_status_csv
 from babs.system import System, validate_queue
 from babs.utils import (
     get_datalad_version,
+    output_dir_from_config,
     validate_processing_level,
 )
 
@@ -337,8 +339,21 @@ class BABSBootstrap(BABS):
             )
             container = Container(container_ds, container_name, container_config)
 
-        # Copy in any other files needed:
-        self._init_import_files(container.config.get('imported_files', []))
+        # Materialize hooks (and copy in any other files needed): hook scripts
+        # (user `script:` and built-ins alike) are CopyIns riding the
+        # imported_files path. Destinations are relative to self.analysis_path,
+        # so they survive a configurable analysis_path. output_dir is only
+        # derived when hooks are configured (a hook-free config needn't supply
+        # it).
+        hooks_config = container.config.get('hooks')
+        _, _, hook_materializations = resolve_hooks(
+            hooks_config,
+            output_dir=output_dir_from_config(container.config) if hooks_config else None,
+        )
+        self._init_import_files(
+            container.config.get('imported_files', [])
+            + [m.as_import() for m in hook_materializations]
+        )
         # _update_inclusion_dataframe() expects a DataFrame (or None).
         # If --list_sub_file was provided, use the parsed DataFrame
         # stored in initial_inclu_df by set_inclusion_dataframe() above.
@@ -479,12 +494,12 @@ class BABSBootstrap(BABS):
         """Bootstrap scripts for single BIDS app configuration."""
         container = Container(container_ds, container_name, container_config)
 
-        # Generate `<containerName>_zip.sh`: ----------------------------------
-        # which is a bash script of singularity run + zip
+        # Generate `<containerName>_run.sh`: ----------------------------------
+        # which is a bash script of singularity run
         # in folder: `analysis/code`
-        print('\nGenerating a bash script for running container and zipping the outputs...')
-        print('This bash script will be named as `' + container_name + '_zip.sh`')
-        bash_path = op.join(self.analysis_path, 'code', container_name + '_zip.sh')
+        print('\nGenerating a bash script for running the container...')
+        print('This bash script will be named as `' + container_name + '_run.sh`')
+        bash_path = op.join(self.analysis_path, 'code', container_name + '_run.sh')
         shared_group_mode = self.shared_group is not None
         container.generate_bash_run_bidsapp(
             bash_path,
@@ -493,7 +508,7 @@ class BABSBootstrap(BABS):
             shared_group_mode=shared_group_mode,
         )
         self.datalad_save(
-            path='code/' + container_name + '_zip.sh',
+            path='code/' + container_name + '_run.sh',
             message='Generate script of running container',
         )
 
@@ -633,6 +648,17 @@ class BABSBootstrap(BABS):
                     f'Requested imported file {imported_file["original_path"]} does not exist.'
                 )
             imported_location = op.join(self.analysis_path, imported_file['analysis_path'])
+            # Reject a destination that escapes the analysis dir (absolute or
+            # `..`), which the makedirs below would otherwise create anywhere.
+            analysis_root = op.abspath(self.analysis_path)
+            if op.commonpath([analysis_root, op.abspath(imported_location)]) != analysis_root:
+                raise ValueError(
+                    f'Imported-file destination {imported_file["analysis_path"]!r} '
+                    f'escapes the analysis directory {self.analysis_path}.'
+                )
+            # Create the destination's parent dir if needed (e.g. hooks land in
+            # `code/hooks/`, which doesn't pre-exist like flat `code/` does).
+            os.makedirs(op.dirname(imported_location), exist_ok=True)
             # Copy the file using pure Python:
             with (
                 open(imported_file['original_path'], 'rb') as src,

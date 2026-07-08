@@ -245,6 +245,19 @@ def test_datalad_save_failure(babs_project_sessionlevel, monkeypatch):
         babs_proj.datalad_save(path=test_file, message='Test save')
 
 
+@pytest.mark.parametrize('bad_dest', ['../escape.sh', '/etc/escape.sh'])
+def test_init_import_files_rejects_escaping_destination(tmp_path, bad_dest):
+    """`_init_import_files` rejects a destination outside the analysis dir."""
+    project_root = tmp_path / 'project'
+    (project_root / 'analysis').mkdir(parents=True)
+    src = project_root / 'src.sh'
+    src.write_text('echo hi\n')
+
+    babs_bootstrap = BABSBootstrap(project_root=project_root)
+    with pytest.raises(ValueError, match='escapes the analysis directory'):
+        babs_bootstrap._init_import_files([{'original_path': str(src), 'analysis_path': bad_dest}])
+
+
 def test_key_info_ria_only(babs_project_sessionlevel):
     """Test wtf_key_info with flag_output_ria_only=True."""
     babs_proj = BABS(babs_project_sessionlevel)
@@ -398,7 +411,7 @@ def test_shared_group_inits_analysis_and_rias(
     # Shared mode should generate scripts with explicit group mode 0o770.
     for check_path in (
         Path(babs_bootstrap.analysis_path) / 'code' / 'participant_job.sh',
-        Path(babs_bootstrap.analysis_path) / 'code' / 'simbids-0-0-3_zip.sh',
+        Path(babs_bootstrap.analysis_path) / 'code' / 'simbids-0-0-3_run.sh',
         Path(babs_bootstrap.analysis_path) / 'code' / 'check_setup' / 'call_test_job.sh',
         Path(babs_bootstrap.analysis_path) / 'code' / 'check_setup' / 'test_job.py',
     ):
