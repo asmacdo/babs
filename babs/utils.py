@@ -155,7 +155,8 @@ def app_output_settings_from_config(config):
     Parameters:
     ------------
     config: dictionary
-        attribute `config` in class Container;
+        attribute `config` in class Container; the `output_dir` key (if present)
+        names the top-level output folder, defaulting to `OUTPUT_MAIN_FOLDERNAME`.
 
     Returns:
     ---------
@@ -186,8 +187,7 @@ def app_output_settings_from_config(config):
         PLACEHOLDER_MK_SUB_OUTPUT_FOLDER_DEPRECATED,
     )
 
-    # By default, the output folder is `outputs`:
-    bids_app_output_dir = OUTPUT_MAIN_FOLDERNAME
+    bids_app_output_dir = config.get('output_dir', OUTPUT_MAIN_FOLDERNAME)
 
     # Sanity check: this section should exist:
     if 'zip_foldernames' not in config:

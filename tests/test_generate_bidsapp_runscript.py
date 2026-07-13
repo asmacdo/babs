@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from babs.constants import OUTPUT_MAIN_FOLDERNAME
 from babs.generate_bidsapp_runscript import (
     generate_bidsapp_runscript,
     generate_pipeline_runscript,
@@ -125,6 +126,7 @@ def test_generate_bidsapp_runscript(input_datasets, config_file, processing_leve
         relative_container_path=f'containers/.datalad/containers/{container_name}/image',
         bids_app_output_dir=bids_app_output_dir,
         dict_zip_foldernames=config['zip_foldernames'],
+        output_dir=config.get('output_dir', OUTPUT_MAIN_FOLDERNAME),
         bids_app_args=config['bids_app_args'],
         singularity_args=config['singularity_args'],
         templateflow_home='/path/to/templateflow_home',
@@ -176,6 +178,7 @@ def test_generate_pipeline_runscript(tmp_path):
         pipeline_config=pipeline_config,
         processing_level='subject',
         input_datasets=input_datasets_prep,
+        output_dir=config.get('output_dir', OUTPUT_MAIN_FOLDERNAME),
         templateflow_home='/path/to/templateflow_home',
         final_zip_foldernames=config.get('zip_foldernames', {}),
     )

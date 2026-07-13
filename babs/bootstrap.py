@@ -446,6 +446,7 @@ class BABSBootstrap(BABS):
             bash_path,
             self.input_datasets,
             self.processing_level,
+            output_dir=self.output_dir,
             shared_group_mode=shared_group_mode,
         )
         self.datalad_save(
@@ -500,6 +501,7 @@ class BABSBootstrap(BABS):
             pipeline_config=self.pipeline,
             processing_level=self.processing_level,
             input_datasets=self.input_datasets,
+            output_dir=self.output_dir,
             templateflow_home=templateflow_home,
             final_zip_foldernames=final_zip_foldernames,
         )

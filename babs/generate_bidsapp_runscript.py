@@ -15,6 +15,7 @@ def generate_bidsapp_runscript(
     relative_container_path,
     bids_app_output_dir,
     dict_zip_foldernames,
+    output_dir,
     bids_app_args=None,
     singularity_args=None,
     templateflow_home=None,
@@ -43,7 +44,7 @@ def generate_bidsapp_runscript(
         The contents of the bash script that runs the BIDS App singularity image.
     """
 
-    from .constants import OUTPUT_MAIN_FOLDERNAME, PATH_FS_LICENSE_IN_CONTAINER
+    from .constants import PATH_FS_LICENSE_IN_CONTAINER
 
     # 1. check `bids_app_args` section:
     if bids_app_args is None:
@@ -74,7 +75,7 @@ def generate_bidsapp_runscript(
     cmd_unzip_inputds = get_input_unzipping_cmds(input_datasets)
 
     # Generate zip command
-    cmd_zip = get_output_zipping_cmds(dict_zip_foldernames, processing_level)
+    cmd_zip = get_output_zipping_cmds(dict_zip_foldernames, processing_level, output_dir)
 
     # Render the template
     env = Environment(
@@ -102,13 +103,13 @@ def generate_bidsapp_runscript(
         bids_app_output_dir=bids_app_output_dir,
         bids_app_args=bids_app_args,
         cmd_zip=cmd_zip,
-        OUTPUT_MAIN_FOLDERNAME=OUTPUT_MAIN_FOLDERNAME,
+        output_dir=output_dir,
         singularity_flags=singularity_args,
         subject_selection_flag=subject_selection_flag,
     )
 
 
-def get_output_zipping_cmds(dict_zip_foldernames, processing_level):
+def get_output_zipping_cmds(dict_zip_foldernames, processing_level, output_dir):
     """
     This is to generate bash command to zip BIDS App outputs.
 
@@ -119,6 +120,8 @@ def get_output_zipping_cmds(dict_zip_foldernames, processing_level):
         got from `app_output_settings_from_config()`.
     processing_level : {'subject', 'session'}
         whether processing is done on a subject-wise or session-wise basis
+    output_dir: str
+        the top-level output folder the App writes into (e.g. `outputs`, `derivatives`)
 
     Returns:
     ---------
@@ -126,8 +129,6 @@ def get_output_zipping_cmds(dict_zip_foldernames, processing_level):
         It's part of the `<containerName_zip.sh>`; it is generated
         based on section `zip_foldernames` in the yaml file.
     """
-    from .constants import OUTPUT_MAIN_FOLDERNAME
-
     # Check for version mismatches and issue warnings
     value_temp = ''
     for i, (key, value) in enumerate(dict_zip_foldernames.items()):
@@ -155,7 +156,7 @@ def get_output_zipping_cmds(dict_zip_foldernames, processing_level):
 
     # Render the template
     cmd = template.render(
-        output_main_folder=OUTPUT_MAIN_FOLDERNAME,
+        output_dir=output_dir,
         processing_level=processing_level,
         dict_zip_foldernames=dict_zip_foldernames,
     )
@@ -324,6 +325,7 @@ def generate_pipeline_runscript(
     pipeline_config,
     processing_level,
     input_datasets,
+    output_dir,
     templateflow_home=None,
     final_zip_foldernames=None,
 ):
@@ -346,6 +348,9 @@ def generate_pipeline_runscript(
     input_datasets: InputDatasets or list of dicts
         InputDatasets object or list of dicts containing information of input datasets
 
+    output_dir: str
+        the top-level output folder the App writes into (e.g. `outputs`, `derivatives`)
+
     templateflow_home: str, optional
         TEMPLATEFLOW_HOME on disk, if any, to add a bind mount
 
@@ -359,7 +364,7 @@ def generate_pipeline_runscript(
         The rendered bash script content
     """
 
-    from .constants import OUTPUT_MAIN_FOLDERNAME, PATH_FS_LICENSE_IN_CONTAINER
+    from .constants import PATH_FS_LICENSE_IN_CONTAINER
     from .utils import app_output_settings_from_config
 
     # Handle both InputDatasets objects and lists of dicts for consistency
@@ -408,10 +413,12 @@ def generate_pipeline_runscript(
         else:
             # For non-nordic steps, check if step has zip_foldernames
             if 'zip_foldernames' in step_config:
-                _, bids_app_output_dir = app_output_settings_from_config(step_config)
+                _, bids_app_output_dir = app_output_settings_from_config(
+                    {**step_config, 'output_dir': output_dir}
+                )
             else:
                 # Step doesn't have zip_foldernames, use default
-                bids_app_output_dir = OUTPUT_MAIN_FOLDERNAME
+                bids_app_output_dir = output_dir
 
         # For step 0, use the original input; subsequent steps chain from previous output
         step_input_dir = (
@@ -444,12 +451,16 @@ def generate_pipeline_runscript(
     # Update the last step's output directory to match the final zip configuration
     if processed_steps and final_zip_foldernames:
         # Create a temporary config with the final zip_foldernames to get the correct output path
-        temp_config = {'zip_foldernames': final_zip_foldernames, 'all_results_in_one_zip': True}
+        temp_config = {
+            'zip_foldernames': final_zip_foldernames,
+            'all_results_in_one_zip': True,
+            'output_dir': output_dir,
+        }
         _, final_output_dir = app_output_settings_from_config(temp_config)
         processed_steps[-1]['bids_app_output_dir'] = final_output_dir
 
     # Generate the final zip command using existing helper for consistency
-    cmd_zip = get_output_zipping_cmds(final_zip_foldernames, processing_level)
+    cmd_zip = get_output_zipping_cmds(final_zip_foldernames, processing_level, output_dir)
 
     # Get unzip commands for any zipped input datasets
     cmd_unzip_inputds = get_input_unzipping_cmds(input_datasets)
@@ -473,7 +484,7 @@ def generate_pipeline_runscript(
         cmd_unzip_inputds=cmd_unzip_inputds,
         cmd_zip=cmd_zip,
         PATH_FS_LICENSE_IN_CONTAINER=PATH_FS_LICENSE_IN_CONTAINER,
-        OUTPUT_MAIN_FOLDERNAME=OUTPUT_MAIN_FOLDERNAME,
+        output_dir=output_dir,
     )
 
 

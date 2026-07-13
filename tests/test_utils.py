@@ -80,6 +80,19 @@ def test_app_output_settings_from_config():
     assert result_single == single_zip_config['zip_foldernames']
     assert output_dir_single == 'outputs/output1'
 
+    # Test that a config-supplied `output_dir` overrides the default `outputs`
+    derivatives_config = {'zip_foldernames': {'output1': 'v1.0.0'}, 'output_dir': 'derivatives'}
+    _, output_dir_derivatives = app_output_settings_from_config(derivatives_config)
+    assert output_dir_derivatives == 'derivatives'
+
+    derivatives_single_config = {
+        'zip_foldernames': {'output1': 'v1.0.0'},
+        'all_results_in_one_zip': True,
+        'output_dir': 'derivatives',
+    }
+    _, output_dir_derivatives_single = app_output_settings_from_config(derivatives_single_config)
+    assert output_dir_derivatives_single == 'derivatives/output1'
+
     # Test with empty zip_foldernames (should raise exception)
     empty_config = {'zip_foldernames': {}}
 

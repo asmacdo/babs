@@ -1,4 +1,4 @@
-cd {{ output_main_folder }}
+cd {{ output_dir }}
 {% set str_sesid = '_${sesid}' if processing_level == 'session' else '' %}
 {% set value_temp = '' %}
 {% for key, value in dict_zip_foldernames.items() %}

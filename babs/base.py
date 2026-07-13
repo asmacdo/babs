@@ -12,6 +12,7 @@ import datalad.api as dlapi
 import pandas as pd
 import yaml
 
+from babs.constants import OUTPUT_MAIN_FOLDERNAME
 from babs.input_datasets import InputDatasets, OutputDatasets
 from babs.scheduler import (
     request_all_job_status,
@@ -54,6 +55,24 @@ def _resolve_subpath(project_root: str, value: str, key: str) -> str:
     if not resolved.is_relative_to(Path(project_root).resolve()):
         raise ValueError(f"'{key}' resolves outside project_root: {resolved}")
     return str(resolved)
+
+
+def _validate_output_dir(value: str, key: str = 'output_dir') -> str:
+    """Validate a config-supplied output folder name.
+
+    It names the folder the BIDS App writes into (e.g. `outputs`, `derivatives`), used
+    relative to the job's working directory in the generated run scripts. Must be a
+    single, non-nested folder name: not empty, not absolute, no path separators, no
+    traversal.
+    """
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"'{key}' must be a non-empty string, got {value!r}")
+    p = Path(value)
+    if p.is_absolute() or len(p.parts) != 1 or value in ('.', '..'):
+        raise ValueError(
+            f"'{key}' must be a single, non-nested folder name (e.g. 'derivatives'), got {value!r}"
+        )
+    return value
 
 
 class BABS:
@@ -154,6 +173,8 @@ class BABS:
 
         self.input_ria_url = 'ria+file://' + self.input_ria_path
         self.output_ria_url = 'ria+file://' + self.output_ria_path
+
+        self.output_dir = _validate_output_dir(cfg.get('output_dir', OUTPUT_MAIN_FOLDERNAME))
 
         self.output_ria_data_dir = None  # not known yet before output_ria is created
         self.analysis_dataset_id = None  # to update later

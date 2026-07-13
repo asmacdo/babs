@@ -102,7 +102,7 @@ class Container:
         )
 
     def generate_bash_run_bidsapp(
-        self, bash_path, input_ds, processing_level, shared_group_mode=False
+        self, bash_path, input_ds, processing_level, output_dir, shared_group_mode=False
     ):
         """
         This is to generate a bash script that runs the BIDS App singularity image.
@@ -115,6 +115,8 @@ class Container:
             input dataset(s) information
         processing_level : {'subject', 'session'}
             whether processing is done on a subject-wise or session-wise basis
+        output_dir: str
+            the top-level output folder the App writes into (e.g. `outputs`, `derivatives`)
         shared_group_mode : bool, optional
             If True, align generated script permissions with shared-group mode.
         """
@@ -137,6 +139,7 @@ class Container:
             relative_container_path=self.container_path_relToAnalysis,
             bids_app_output_dir=bids_app_output_dir,
             dict_zip_foldernames=dict_zip_foldernames,
+            output_dir=output_dir,
             bids_app_args=self.config.get('bids_app_args', None),
             singularity_args=self.config.get('singularity_args', []),
             templateflow_home=templateflow_home,

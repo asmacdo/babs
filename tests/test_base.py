@@ -16,7 +16,7 @@ import yaml
 from conftest import get_config_simbids_path, update_yaml_for_run
 
 from babs import BABSCheckSetup
-from babs.base import BABS, CONFIG_SECTIONS
+from babs.base import BABS, CONFIG_SECTIONS, _validate_output_dir
 from babs.bootstrap import BABSBootstrap
 from babs.utils import read_yaml
 
@@ -56,6 +56,16 @@ def test_missing_directories(tmp_path_factory):
     not_exists = Path('/does/not/exist')
     with pytest.raises(FileNotFoundError, match='project_root` does not exist!'):
         BABSCheckSetup(not_exists)
+
+
+def test_validate_output_dir():
+    """`output_dir` must be a single, non-nested folder name."""
+    assert _validate_output_dir('outputs') == 'outputs'
+    assert _validate_output_dir('derivatives') == 'derivatives'
+
+    for bad in ['', '   ', '.', '..', '/', '/abs', 'a/b', 'nested/deeper', '../escape']:
+        with pytest.raises(ValueError, match='output_dir'):
+            _validate_output_dir(bad)
 
 
 def test_validate_pipeline_config(babs_project_sessionlevel):

@@ -85,7 +85,7 @@ singularity run \
 {% endfor %}
 
 {{ cmd_zip }}
-rm -rf {{ OUTPUT_MAIN_FOLDERNAME }} .git/tmp/wkdir
+rm -rf {{ output_dir }} .git/tmp/wkdir
 {% if steps_with_filter %}
 rm -f "${filterfile}"
 {% endif %}
