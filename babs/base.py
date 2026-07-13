@@ -57,7 +57,7 @@ def _resolve_subpath(project_root: str, value: str, key: str) -> str:
     return str(resolved)
 
 
-def _validate_output_dir(value: str, key: str = 'output_dir') -> str:
+def _validate_output_dir(value: str) -> str:
     """Validate a config-supplied output folder name.
 
     It names the folder the BIDS App writes into (e.g. `outputs`, `derivatives`), used
@@ -66,11 +66,12 @@ def _validate_output_dir(value: str, key: str = 'output_dir') -> str:
     traversal.
     """
     if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"'{key}' must be a non-empty string, got {value!r}")
+        raise ValueError(f"'output_dir' must be a non-empty string, got {value!r}")
     p = Path(value)
     if p.is_absolute() or len(p.parts) != 1 or value in ('.', '..'):
         raise ValueError(
-            f"'{key}' must be a single, non-nested folder name (e.g. 'derivatives'), got {value!r}"
+            f"'output_dir' must be a single, non-nested folder name (e.g. 'derivatives'), "
+            f'got {value!r}'
         )
     return value
 
