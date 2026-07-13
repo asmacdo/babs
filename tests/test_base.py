@@ -345,7 +345,7 @@ def test_bootstrap_container_config_from_constructor(
     simbids_container_ds,
     bids_data_singlesession,
 ):
-    """Test that container_config passed to the constructor is used when not passed to babs_bootstrap."""
+    """container_config passed to the constructor is used when babs_bootstrap gets none."""
 
     os.environ['TEMPLATEFLOW_HOME'] = str(templateflow_home)
 
