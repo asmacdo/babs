@@ -141,6 +141,40 @@ def test_generate_bidsapp_runscript(input_datasets, config_file, processing_leve
     assert passed, status
 
 
+def test_generate_bidsapp_runscript_custom_output_dir(tmp_path):
+    """A config-supplied `output_dir` threads into the generated run script."""
+    config = read_yaml(NOTEBOOKS_DIR / 'eg_toybidsapp-0-0-7_rawBIDS-walkthrough.yaml')
+    config['output_dir'] = 'derivatives'
+    dict_zip_foldernames, bids_app_output_dir = app_output_settings_from_config(config)
+    script_content = generate_bidsapp_runscript(
+        input_datasets_prep,
+        'subject',
+        container_name='toybidsapp',
+        relative_container_path='containers/.datalad/containers/toybidsapp/image',
+        bids_app_output_dir=bids_app_output_dir,
+        dict_zip_foldernames=config['zip_foldernames'],
+        output_dir=config['output_dir'],
+        bids_app_args=config['bids_app_args'],
+        singularity_args=config['singularity_args'],
+        templateflow_home='/path/to/templateflow_home',
+    )
+
+    # the output folder lands under `derivatives`, and the default `outputs` is gone
+    assert 'mkdir -p "derivatives' in script_content
+    assert 'cd derivatives' in script_content
+    assert 'rm -rf derivatives ' in script_content
+    assert 'outputs' not in script_content
+
+    # the script is still valid
+    out_fn = tmp_path / 'custom_output_dir.sh'
+    with open(out_fn, 'w') as f:
+        f.write(script_content)
+    passed, status = run_shellcheck(str(out_fn))
+    if not passed:
+        print(script_content)
+    assert passed, status
+
+
 def run_shellcheck(script_path):
     """Run shellcheck on a shell script string and return the result.
 
