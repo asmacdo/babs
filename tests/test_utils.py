@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import datalad.api as dlapi
 import pandas as pd
 import pytest
 import yaml
@@ -21,6 +22,7 @@ from babs.utils import (
     parse_select_arg,
     read_yaml,
     replace_placeholder_from_config,
+    resolve_container_image_path,
     update_submitted_job_ids,
     validate_processing_level,
 )
@@ -548,3 +550,67 @@ def test_submitted_missing_sub_id():
 
     with pytest.raises(ValueError, match='job_submit_df must have a sub_id column'):
         update_submitted_job_ids(results_df, submitted_df)
+
+
+@pytest.fixture
+def container_ds(tmp_path):
+    """A `containers` datalad dataset, sitting where babs expects it in `analysis`."""
+    containers_path = tmp_path / 'analysis' / 'containers'
+    containers_path.mkdir(parents=True)
+    return dlapi.create(path=str(containers_path))
+
+
+@pytest.fixture
+def dummy_image(tmp_path):
+    """A stand-in for a container image: registering one never runs it."""
+    image = tmp_path / 'dummy--0.0.1.sif'
+    image.write_text('not a real image, just something to register')
+    return image
+
+
+def test_resolve_container_image_path_nondefault_layout(container_ds, dummy_image):
+    """An image registered off the datalad-containers default is found there.
+
+    This is the ReproNim/containers layout: `images/<collection>/<app>--<ver>.sif`.
+    """
+    container_ds.containers_add(
+        name='bids-mriqc',
+        image='images/bids/bids-mriqc--24.0.2.sif',
+        url=str(dummy_image),
+    )
+    analysis_path = Path(container_ds.path).parent
+
+    assert (
+        resolve_container_image_path(str(analysis_path), 'bids-mriqc')
+        == 'containers/images/bids/bids-mriqc--24.0.2.sif'
+    )
+
+
+def test_resolve_container_image_path_default_layout(container_ds, dummy_image):
+    """An image registered at the default location resolves to that same path."""
+    container_ds.containers_add(name='simbids-0-0-3', url=str(dummy_image))
+    analysis_path = Path(container_ds.path).parent
+
+    assert (
+        resolve_container_image_path(str(analysis_path), 'simbids-0-0-3')
+        == 'containers/.datalad/environments/simbids-0-0-3/image'
+    )
+
+
+def test_resolve_container_image_path_unregistered_name(container_ds, dummy_image):
+    """A name that is not registered falls back to the default path."""
+    container_ds.containers_add(name='bids-mriqc', url=str(dummy_image))
+    analysis_path = Path(container_ds.path).parent
+
+    assert (
+        resolve_container_image_path(str(analysis_path), 'not-registered')
+        == 'containers/.datalad/environments/not-registered/image'
+    )
+
+
+def test_resolve_container_image_path_no_container_dataset(tmp_path):
+    """With no containers dataset at all, the default path is returned."""
+    assert (
+        resolve_container_image_path(str(tmp_path), 'bids-fmriprep')
+        == 'containers/.datalad/environments/bids-fmriprep/image'
+    )

@@ -7,6 +7,7 @@ import subprocess
 import warnings
 from importlib.metadata import version
 
+import datalad.api as dlapi
 import pandas as pd
 import yaml
 from filelock import FileLock, Timeout
@@ -65,6 +66,62 @@ def get_datalad_version():
 
 def get_immediate_subdirectories(a_dir):
     return [name for name in os.listdir(a_dir) if os.path.isdir(os.path.join(a_dir, name))]
+
+
+def default_container_image_path(container_name):
+    """Return the datalad-containers default image path, relative to `analysis`.
+
+    Parameters
+    ----------
+    container_name: str
+        Name the image is registered under (`NAME` in `datalad containers-add NAME`)
+
+    Returns
+    -------
+    str
+        e.g. `containers/.datalad/environments/fmriprep-24-1-1/image`
+    """
+    return os.path.join('containers', '.datalad', 'environments', container_name, 'image')
+
+
+def resolve_container_image_path(analysis_path, container_name):
+    """Return a container's image path, relative to `analysis`.
+
+    The path is read from the container dataset's datalad-containers
+    registration, so a dataset that registers its image somewhere other than
+    the datalad-containers default works too — e.g. ReproNim/containers, which
+    keeps images at `images/<collection>/<app>--<ver>.sif`.
+
+    Parameters
+    ----------
+    analysis_path: str
+        Absolute path to a BABS project's `analysis` dataset. The container
+        dataset is its `containers` subdataset.
+    container_name: str
+        Name the image is registered under (`NAME` in `datalad containers-add NAME`)
+
+    Returns
+    -------
+    str
+        Path to the image, relative to `analysis_path` — so it stays valid
+        wherever the project is cloned. Falls back to the datalad-containers
+        default when the image is not registered under `container_name`, which
+        leaves a container dataset without registrations behaving as before.
+    """
+    containers_path = os.path.join(analysis_path, 'containers')
+    if not os.path.exists(os.path.join(containers_path, '.datalad', 'config')):
+        return default_container_image_path(container_name)
+
+    registrations = dlapi.containers_list(dataset=containers_path, result_renderer='disabled')
+    for registration in registrations:
+        if registration.get('name') == container_name:
+            # `containers-list` reports an absolute path; the job scripts and
+            # the project config want it relative to `analysis`.
+            return os.path.join(
+                'containers', os.path.relpath(registration['path'], containers_path)
+            )
+
+    return default_container_image_path(container_name)
 
 
 def validate_processing_level(processing_level):
