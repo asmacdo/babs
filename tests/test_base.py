@@ -140,9 +140,13 @@ def test_pipeline_config_details(babs_project_sessionlevel):
     babs_proj._validate_pipeline_config()
 
 
-def test_container_image_path():
+def test_container_image_path(tmp_path):
+    """With no container dataset to read, the datalad-containers default is used."""
+    babs_proj = object.__new__(BABS)
+    babs_proj.analysis_path = str(tmp_path)
+
     assert (
-        BABS.container_image_path('fmriprep-1-2-3')
+        babs_proj.container_image_path('fmriprep-1-2-3')
         == 'containers/.datalad/environments/fmriprep-1-2-3/image'
     )
 
@@ -163,8 +167,9 @@ def test_get_container_image_paths_deduplicates_explicit_list():
     ) == ['containers/a/image', 'containers/b/image']
 
 
-def test_get_container_image_paths_from_single_container():
+def test_get_container_image_paths_from_single_container(tmp_path):
     babs_proj = object.__new__(BABS)
+    babs_proj.analysis_path = str(tmp_path)
     babs_proj.pipeline = None
     babs_proj.container = {'name': 'simbids-0-0-3'}
 
@@ -173,8 +178,9 @@ def test_get_container_image_paths_from_single_container():
     ]
 
 
-def test_get_container_image_paths_from_pipeline():
+def test_get_container_image_paths_from_pipeline(tmp_path):
     babs_proj = object.__new__(BABS)
+    babs_proj.analysis_path = str(tmp_path)
     babs_proj.pipeline = [
         {'container_name': 'nordic-0-0-1'},
         {'container_name': 'fmriprep-25-0-0'},

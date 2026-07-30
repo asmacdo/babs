@@ -179,7 +179,6 @@ class BABSBootstrap(BABS):
         print('Save BABS project configurations in a YAML file ...')
         print(f"Path to this yaml file will be: '{self.config_path}'")
         self.container = {'name': container_name}
-        container_images = self.get_container_image_paths({})
 
         env = Environment(
             loader=PackageLoader('babs', 'templates'),
@@ -196,7 +195,6 @@ class BABSBootstrap(BABS):
                     input_ds=self.input_datasets,
                     container_name=container_name,
                     container_ds=container_ds,
-                    container_images=container_images,
                 )
             )
         self.datalad_save(
@@ -267,7 +265,12 @@ class BABSBootstrap(BABS):
         # into `analysis/containers` folder
 
         # Create initial container for sanity check
-        container = Container(container_ds, container_name, container_config)
+        container = Container(
+            container_ds,
+            container_name,
+            container_config,
+            self.container_image_path(container_name),
+        )
 
         # sanity check of container ds:
         container.sanity_check(self.analysis_path)
@@ -284,7 +287,12 @@ class BABSBootstrap(BABS):
             for i, step in enumerate(self.pipeline):
                 step_container_name = step['container_name']
                 print(f'Validating container {i + 1}/{len(self.pipeline)}: {step_container_name}')
-                step_container = Container(container_ds, step_container_name, container_config)
+                step_container = Container(
+                    container_ds,
+                    step_container_name,
+                    container_config,
+                    self.container_image_path(step_container_name),
+                )
                 step_container.sanity_check(self.analysis_path)
                 containers.append(step_container)
 
@@ -295,7 +303,12 @@ class BABSBootstrap(BABS):
             self._bootstrap_single_app_scripts(
                 container_ds, container_name, container_config, system
             )
-            container = Container(container_ds, container_name, container_config)
+            container = Container(
+                container_ds,
+                container_name,
+                container_config,
+                self.container_image_path(container_name),
+            )
 
         # Copy in any other files needed:
         self._init_import_files(container.config.get('imported_files', []))
@@ -317,7 +330,12 @@ class BABSBootstrap(BABS):
                     f'Generating job template for container {i + 1}/{len(self.pipeline)}: '
                     f'{step_container_name}'
                 )
-                step_container = Container(container_ds, step_container_name, container_config)
+                step_container = Container(
+                    container_ds,
+                    step_container_name,
+                    container_config,
+                    self.container_image_path(step_container_name),
+                )
 
                 # Main job template (use first container for main template)
                 if i == 0:
@@ -437,7 +455,12 @@ class BABSBootstrap(BABS):
         self, container_ds, container_name, container_config, system
     ):
         """Bootstrap scripts for single BIDS app configuration."""
-        container = Container(container_ds, container_name, container_config)
+        container = Container(
+            container_ds,
+            container_name,
+            container_config,
+            self.container_image_path(container_name),
+        )
 
         # Generate `<containerName>_zip.sh`: ----------------------------------
         # which is a bash script of singularity run + zip
@@ -488,10 +511,12 @@ class BABSBootstrap(BABS):
 
         print('\nGenerating pipeline scripts...')
 
-        # Prepare container images for submit script
-        container_images = [
-            f'containers/.datalad/environments/{s["container_name"]}/image' for s in self.pipeline
-        ]
+        # Resolve each step's image once; keyed by name, so a container used by
+        # more than one step is fetched and linked once.
+        container_image_paths = {
+            step['container_name']: self.container_image_path(step['container_name'])
+            for step in self.pipeline
+        }
 
         # Use top-level zip_foldernames for pipeline final output
         final_zip_foldernames = self.zip_foldernames
@@ -506,6 +531,7 @@ class BABSBootstrap(BABS):
             input_datasets=self.input_datasets,
             templateflow_home=templateflow_home,
             final_zip_foldernames=final_zip_foldernames,
+            container_image_paths=container_image_paths,
         )
 
         with open(pipeline_script_path, 'w') as f:
@@ -542,7 +568,7 @@ class BABSBootstrap(BABS):
             container_name='pipeline',  # placeholder
             zip_foldernames=final_zip_foldernames,
             run_script_relpath='code/pipeline_zip.sh',
-            container_images=container_images,
+            container_images=list(container_image_paths.values()),
             datalad_run_message='pipeline',
             analysis_path=self.analysis_path,
         )
@@ -560,7 +586,12 @@ class BABSBootstrap(BABS):
                 f'Generating test job for container {i + 1}/{len(self.pipeline)}: '
                 f'{step_container_name}'
             )
-            step_container = Container(container_ds, step_container_name, container_config)
+            step_container = Container(
+                container_ds,
+                step_container_name,
+                container_config,
+                self.container_image_path(step_container_name),
+            )
             # Create separate test job directories for each container
             step_check_setup = op.join(path_check_setup, f'step_{i + 1}_{step_container_name}')
             os.makedirs(step_check_setup, exist_ok=True)

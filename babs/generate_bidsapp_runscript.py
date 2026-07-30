@@ -5,7 +5,11 @@ import warnings
 
 from jinja2 import Environment, PackageLoader, StrictUndefined
 
-from babs.utils import RUNNING_PYTEST, replace_placeholder_from_config
+from babs.utils import (
+    RUNNING_PYTEST,
+    default_container_image_path,
+    replace_placeholder_from_config,
+)
 
 
 def generate_bidsapp_runscript(
@@ -326,6 +330,7 @@ def generate_pipeline_runscript(
     input_datasets,
     templateflow_home=None,
     final_zip_foldernames=None,
+    container_image_paths=None,
 ):
     """Generate a bash script that runs an ordered pipeline of BIDS Apps.
 
@@ -351,6 +356,11 @@ def generate_pipeline_runscript(
 
     final_zip_foldernames: dict, optional
         Top-level zip_foldernames configuration for final output zipping.
+
+    container_image_paths: dict, optional
+        Analysis-relative image path per container name, as registered in the
+        container dataset. Names absent from it fall back to the
+        datalad-containers default location.
         If None, falls back to last step's config for backward compatibility.
 
     Returns
@@ -420,8 +430,8 @@ def generate_pipeline_runscript(
 
         processed_step = {
             'container_name': container_name,
-            'container_path_relToAnalysis': (
-                f'containers/.datalad/environments/{container_name}/image'
+            'container_path_relToAnalysis': (container_image_paths or {}).get(
+                container_name, default_container_image_path(container_name)
             ),
             'bids_app_input_dir': step_input_dir,
             'bids_app_output_dir': bids_app_output_dir,

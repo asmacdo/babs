@@ -14,7 +14,7 @@ from babs.utils import app_output_settings_from_config
 class Container:
     """This class is for the BIDS App Container"""
 
-    def __init__(self, container_ds, container_name, config_yaml_file):
+    def __init__(self, container_ds, container_name, config_yaml_file, container_image_path):
         """
         This is to initialize Container class.
 
@@ -29,6 +29,10 @@ class Container:
              e.g., fmriprep-0-0-0
         config_yaml_file: str
             The YAML file that contains the configurations of how to run the container
+        container_image_path: str
+            The path to the container image, relative to the `analysis` folder,
+            as registered in the container datalad dataset.
+            See `babs.utils.resolve_container_image_path()`.
 
         Attributes
         ----------
@@ -48,7 +52,10 @@ class Container:
         container_path_relToAnalysis: str
             The path to the container image saved in BABS project;
             this path is relative to `analysis` folder.
-            e.g., `containers/.datalad/environments/fmriprep-0-0-0/image`
+            e.g., `containers/.datalad/environments/fmriprep-0-0-0/image` at the
+            datalad-containers default location, or
+            `containers/images/bids/bids-fmriprep--24.1.1.sif` in a dataset that
+            registers its images elsewhere, such as ReproNim/containers.
             This `image` could be a symlink (`op.islink()`, more likely for singularity container)
             or a folder (`op.isdir()`, more likely for docker container)
         """
@@ -67,9 +74,7 @@ class Container:
         with open(self.config_yaml_file) as f:
             self.config = yaml.safe_load(f)
 
-        self.container_path_relToAnalysis = op.join(
-            'containers', '.datalad', 'environments', self.container_name, 'image'
-        )
+        self.container_path_relToAnalysis = container_image_path
 
     def sanity_check(self, analysis_path):
         """

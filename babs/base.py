@@ -30,6 +30,7 @@ from babs.utils import (
     get_results_branches,
     identify_running_jobs,
     read_yaml,
+    resolve_container_image_path,
     results_status_columns,
     scheduler_status_columns,
     status_dtypes,
@@ -143,6 +144,11 @@ class BABS:
         )
         self._analysis_datalad_handle = None
 
+        # Filled in by `_apply_config()`, which `BABSBootstrap` skips: a project
+        # being bootstrapped has no project config to read yet.
+        self._config_yaml = {}
+        self._container_images = None
+
         self.config_path = op.join(self.analysis_path, 'code/babs_proj_config.yaml')
 
         self.input_ria_path = _resolve_subpath(
@@ -209,7 +215,10 @@ class BABS:
         self.pipeline = config_yaml.get('pipeline', None)
         if self.pipeline is not None:
             self._validate_pipeline_config()
-        self.container_images = self.get_container_image_paths(config_yaml)
+        # Resolving an image path reads the container dataset's registration,
+        # so hold the config and only pay for it when the paths are asked for.
+        self._config_yaml = config_yaml
+        self._container_images = None
 
         # Check the output RIA:
         self.wtf_key_info(flag_output_ria_only=True)
@@ -272,10 +281,19 @@ class BABS:
 
         print('Pipeline configuration validation complete!')
 
-    @staticmethod
-    def container_image_path(container_name: str) -> str:
-        """Return the analysis-relative image path for a DataLad container."""
-        return op.join('containers', '.datalad', 'environments', container_name, 'image')
+    def container_image_path(self, container_name: str) -> str:
+        """Return the analysis-relative image path for a DataLad container.
+
+        Read from the container dataset's registration, so any layout works.
+        """
+        return resolve_container_image_path(self.analysis_path, container_name)
+
+    @property
+    def container_images(self) -> list[str]:
+        """Analysis-relative paths to the image(s) participant jobs run."""
+        if self._container_images is None:
+            self._container_images = self.get_container_image_paths(self._config_yaml)
+        return self._container_images
 
     def get_container_image_paths(self, config_yaml: dict) -> list[str]:
         """Get analysis-relative container image paths used by participant jobs."""

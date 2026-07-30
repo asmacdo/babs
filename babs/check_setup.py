@@ -123,7 +123,7 @@ class BABSCheckSetup(BABS):
                 step_container_name = step['container_name']
                 print(f'  Checking container {i + 1}/{len(self.pipeline)}: {step_container_name}')
                 container_path = op.join(
-                    folder_container, '.datalad/environments', step_container_name, 'image'
+                    self.analysis_path, self.container_image_path(step_container_name)
                 )
                 if not op.exists(container_path):
                     raise FileNotFoundError(

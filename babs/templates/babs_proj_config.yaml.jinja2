@@ -12,11 +12,9 @@ input_datasets:
 {% endfor %}
 
 # container ds:
+# The image path is not recorded here: it is read from the container dataset's
+# datalad-containers registration when needed, so it cannot go stale.
+# An explicit `container_images:` list is still honored if one is added.
 container:
   name: '{{ container_name }}'
   path_in: '{{ container_ds }}'
-
-container_images:
-{% for image_path in container_images %}
-  - '{{ image_path }}'
-{% endfor %}
