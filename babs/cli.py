@@ -352,6 +352,17 @@ def _parse_submit():
         type=PathExists,
     )
 
+    parser.add_argument(
+        '--collect-resources',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            'Also submit one job per batch that waits for the batch to finish and '
+            'records what resources Slurm gave each task (`sacct`), appending them to '
+            '`analysis/code/job_resources.csv`. Use `--no-collect-resources` to skip it.'
+        ),
+    )
+
     return parser
 
 
@@ -376,6 +387,7 @@ def babs_submit_main(
     count: int | None,
     select: list | None,
     inclusion_file: Path | None,
+    collect_resources: bool = True,
 ):
     """This is the core function of ``babs submit``.
 
@@ -389,6 +401,8 @@ def babs_submit_main(
         list of subject IDs and session IDs to be submitted.
     inclusion_file: Path
         path to a CSV file that lists the subjects (and sessions) to analyze.
+    collect_resources: bool
+        whether to also submit a job that records the resources Slurm gave each task.
     """
     import pandas as pd
 
@@ -406,7 +420,11 @@ def babs_submit_main(
     else:
         df_job_specified = None
 
-    babs_proj.babs_submit(count=count, submit_df=df_job_specified)
+    babs_proj.babs_submit(
+        count=count,
+        submit_df=df_job_specified,
+        collect_resources=collect_resources,
+    )
 
 
 def _parse_status():

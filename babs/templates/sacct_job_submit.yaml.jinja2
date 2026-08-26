@@ -1,0 +1,4 @@
+# '${array_job_id}' and '${job_submit_csv}' are placeholders.
+
+cmd_template: '{{ submit_head }} {{ dependency_args }}{{ name_flag_str }}{{ job_name }} {{ eo_args }} {{ babs.analysis_path }}/code/sacct_job.sh ${array_job_id} ${job_submit_csv}'
+job_name_template: '{{ job_name }}'

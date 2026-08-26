@@ -218,6 +218,55 @@ def submit_array(analysis_path, queue, maxarray):
     return job_id
 
 
+def submit_sacct_job(analysis_path, queue, array_job_id, job_submit_csv):
+    """
+    Submit the job that collects Slurm accounting data for a job array.
+
+    The job is submitted with an ``afterany`` dependency on ``array_job_id``, so it
+    runs once every task of the array has finished, whether it succeeded or not.
+    It calls ``sacct`` and appends what Slurm recorded for each task to
+    ``analysis/code/job_resources.csv``.
+
+    Parameters
+    ----------
+    analysis_path: str
+        path to the `analysis` folder. One attribute in class `BABS`
+    queue: str
+        the type of job scheduling system, "sge" or "slurm"
+    array_job_id: int
+        the id of the job array whose resources should be collected
+    job_submit_csv: str
+        path to the CSV that maps the array's task ids to subjects (and sessions)
+
+    Returns
+    -------
+    job_id: int or None
+        the int version of ID of the submitted job, or None if this BABS project
+        was created before `babs` could collect accounting data.
+
+    Notes
+    -----
+    see `Container.generate_sacct_job_submit_template()`
+    for details about template yaml file.
+    """
+    if queue != 'slurm':
+        raise Exception('Invalid job scheduler system type `queue`: ' + queue)
+
+    template_yaml_path = op.join(analysis_path, 'code', 'submit_sacct_job_template.yaml')
+    if not op.exists(template_yaml_path):
+        # This BABS project was created by a version of babs that did not collect
+        # accounting data; there is nothing to submit.
+        return None
+
+    with open(template_yaml_path) as f:
+        templates = yaml.safe_load(f)
+    cmd = templates['cmd_template']
+    cmd = cmd.replace('${array_job_id}', f'{array_job_id}')
+    cmd = cmd.replace('${job_submit_csv}', f'{job_submit_csv}')
+
+    return sbatch_get_job_id(cmd.split(), analysis_path)
+
+
 def submit_one_test_job(analysis_path, queue):
     """
     This is to submit one *test* job.

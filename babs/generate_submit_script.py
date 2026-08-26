@@ -150,6 +150,86 @@ def generate_test_submit_script(
     )
 
 
+#: Cluster resources for the accounting job that `babs submit` submits as an
+#: `afterany` dependency of each job array. It only calls `sacct` and appends to
+#: a CSV file, so it needs very little.
+SACCT_JOB_RESOURCES = {
+    'hard_memory_limit': '2G',
+    'number_of_cpus': 1,
+    'hard_runtime_limit': '00:20:00',
+}
+
+
+def generate_sacct_submit_script(
+    queue_system,
+    cluster_resources_config,
+    script_preamble,
+    job_scratch_directory,
+    sacct_python_script,
+    job_resources_path,
+):
+    """
+    Generate the bash script that collects Slurm accounting data for a job array.
+
+    This script is submitted by ``babs submit`` with an ``afterany`` dependency on
+    the job array, so it runs once the whole array has finished, whether the tasks
+    succeeded or not.
+
+    Parameters
+    ----------
+    queue_system : str
+        The queue system to use (Only accepts 'slurm').
+    cluster_resources_config : dict
+        The `cluster_resources` section of the container's config YAML. Only the
+        interpreting shell and any `customized_text` are taken from it: the
+        resources this job needs have nothing to do with those of the BIDS App.
+    script_preamble : str
+        Script preamble commands.
+    job_scratch_directory : str
+        Directory for job scratch space.
+    sacct_python_script : str
+        Absolute path to `sacct_job.py`, the script that calls `sacct`.
+    job_resources_path : str
+        Absolute path of the CSV file that the collected resources are appended to.
+
+    Returns
+    -------
+    sacct_job_script: str
+        The contents of the bash script that collects the accounting data.
+    """
+    env = Environment(
+        loader=PackageLoader('babs', 'templates'),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=False,
+        undefined=StrictUndefined,
+    )
+    template = env.get_template('sacct_job.sh.jinja2')
+
+    # Keep only the parts of the user's `cluster_resources` that are about *how* to
+    # submit on this cluster (e.g. an account or partition in `customized_text`),
+    # and request our own, much smaller, resources:
+    sacct_resources_config = {
+        key: value
+        for key, value in cluster_resources_config.items()
+        if key in ('interpreting_shell', 'customized_text')
+    }
+    sacct_resources_config.update(SACCT_JOB_RESOURCES)
+
+    interpreting_shell, scheduler_directives = generate_scheduler_directives(
+        queue_system, sacct_resources_config
+    )
+
+    return template.render(
+        interpreting_shell=interpreting_shell,
+        scheduler_directives=scheduler_directives,
+        script_preamble=script_preamble,
+        job_scratch_directory=job_scratch_directory,
+        sacct_python_script=sacct_python_script,
+        job_resources_path=job_resources_path,
+    )
+
+
 def generate_scheduler_directives(queue_system, cluster_resources_config):
     """
     This is to generate the directives ("head of the bash file")
