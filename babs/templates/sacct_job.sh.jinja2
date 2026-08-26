@@ -1,0 +1,26 @@
+#!{{ interpreting_shell }}
+{% for scheduler_directive in scheduler_directives %}
+{{ scheduler_directive }}
+{% endfor %}
+
+# shellcheck disable=SC1091
+{{ script_preamble }}
+
+# Fail whenever something is fishy, use -x to get verbose logfiles:
+set -e -u -x
+
+# Inputs of the bash script:
+array_job_id="$1"	# the id of the job array this job depends on
+job_submit_csv="$2"	# the `task_id` -> subject/session mapping of that job array
+
+# Change to a temporary directory
+cd "{{ job_scratch_directory }}"
+
+# Call `sacct_job.py` to collect what Slurm recorded for each task of the array:
+which_python=$(which python)
+"${which_python}" "{{ sacct_python_script }}" \
+	--job-id "${array_job_id}" \
+	--output "{{ job_resources_path }}" \
+	--job-submit-csv "${job_submit_csv}"
+
+echo SUCCESS

@@ -94,6 +94,10 @@ class BABS:
         job_submit_path_abs: str
             Absolute path of `job_submit_path_abs`.
             Example: '/path/to/analysis/code/job_submit.csv'
+        job_resources_path_abs: str
+            Absolute path of the CSV file that accumulates the resources Slurm
+            recorded for every task that has been submitted.
+            Example: '/path/to/analysis/code/job_resources.csv'
         """
 
         # validation:
@@ -121,6 +125,7 @@ class BABS:
         self.job_status_path_rel = 'code/job_status.csv'
         self.job_status_path_abs = op.join(self.analysis_path, self.job_status_path_rel)
         self.job_submit_path_abs = op.join(self.analysis_path, 'code/job_submit.csv')
+        self.job_resources_path_abs = op.join(self.analysis_path, 'code/job_resources.csv')
         self._apply_config()
 
     def _apply_config(self) -> None:

@@ -7,7 +7,11 @@ import yaml
 from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from babs.generate_bidsapp_runscript import generate_bidsapp_runscript
-from babs.generate_submit_script import generate_submit_script, generate_test_submit_script
+from babs.generate_submit_script import (
+    generate_sacct_submit_script,
+    generate_submit_script,
+    generate_test_submit_script,
+)
 from babs.utils import app_output_settings_from_config
 
 
@@ -207,6 +211,109 @@ class Container:
             with open(fn_test_job, 'wb') as dst:
                 dst.write(src.read())
         os.chmod(fn_test_job, 0o700)
+
+    def generate_bash_sacct_job(self, babs, system):
+        """Generate the scripts of the job that collects Slurm accounting data.
+
+        This writes `analysis/code/sacct_job.sh` and copies `sacct_job.py` next to
+        it. `babs submit` submits `sacct_job.sh` with an `afterany` dependency on
+        each job array it submits, so that what Slurm recorded for every task is
+        saved before Slurm's accounting data ages out.
+
+        Parameters
+        ----------
+        babs: class `BABS`
+            information about the BABS project
+        system: class `System`
+            information on cluster management system
+        """
+        fn_sacct_job_sh = op.join(babs.analysis_path, 'code', 'sacct_job.sh')
+        fn_sacct_job_py = op.join(babs.analysis_path, 'code', 'sacct_job.py')
+
+        script_content = generate_sacct_submit_script(
+            queue_system=system.type,
+            cluster_resources_config=self.config['cluster_resources'],
+            script_preamble=self.config['script_preamble'],
+            job_scratch_directory=self.config['job_compute_space'],
+            sacct_python_script=fn_sacct_job_py,
+            job_resources_path=babs.job_resources_path_abs,
+        )
+
+        with open(fn_sacct_job_sh, 'w') as f:
+            f.write(script_content)
+        os.chmod(fn_sacct_job_sh, 0o700)  # rwx------ (owner only)
+
+        # Copy the python script that actually calls `sacct`:
+        with resources.files('babs').joinpath('template_sacct_job.py').open('rb') as src:
+            with open(fn_sacct_job_py, 'wb') as dst:
+                dst.write(src.read())
+        os.chmod(fn_sacct_job_py, 0o700)
+
+    def generate_sacct_job_submit_template(self, yaml_path, babs, system):
+        """
+        This is to generate a YAML file that serves as a template
+        of submitting the job that collects Slurm accounting data for a job array.
+
+        Its `cmd_template` has two placeholders, `${array_job_id}` and
+        `${job_submit_csv}`, which `babs submit` fills in once it knows the id of
+        the job array it just submitted.
+
+        Parameters
+        ----------
+        yaml_path: str
+            The path to the yaml file to be generated. It should be in the `analysis/code` folder.
+            It has several fields: 1) cmd_template; 2) job_name_template
+        babs: class `BABS`
+            information about the BABS project
+        system: class `System`
+            information on cluster management system
+        """
+        if system.type != 'slurm':
+            warnings.warn('not supporting systems other than slurm...', stacklevel=2)
+            return
+
+        submit_head = 'sbatch'
+        name_flag_str = ' --job-name '
+        job_name = self.container_name[0:3] + '_sacct'
+
+        # `afterany` so that the resources of failed and cancelled tasks are
+        # collected too - those are the most interesting ones to learn from.
+        # `--kill-on-invalid-dep` so this job does not linger if the array never runs.
+        dependency_args = '--dependency=afterany:${array_job_id} --kill-on-invalid-dep=yes'
+
+        eo_args = (
+            '-e '
+            + babs.analysis_path
+            + f'/logs/{job_name}.e%A '
+            + '-o '
+            + babs.analysis_path
+            + f'/logs/{job_name}.o%A'
+        )
+
+        # Check if the yaml file already exists:
+        if op.exists(yaml_path):
+            os.remove(yaml_path)  # remove it
+
+        env = Environment(
+            loader=PackageLoader('babs', 'templates'),
+            trim_blocks=True,
+            lstrip_blocks=True,
+            autoescape=False,
+            undefined=StrictUndefined,
+        )
+        template = env.get_template('sacct_job_submit.yaml.jinja2')
+
+        with open(yaml_path, 'w') as f:
+            f.write(
+                template.render(
+                    submit_head=submit_head,
+                    dependency_args=dependency_args,
+                    name_flag_str=name_flag_str,
+                    job_name=job_name,
+                    eo_args=eo_args,
+                    babs=babs,
+                )
+            )
 
     def generate_job_submit_template(self, yaml_path, babs, system, test=False):
         """
