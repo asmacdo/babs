@@ -152,12 +152,120 @@ def generate_test_submit_script(
 
 #: Cluster resources for the accounting job that `babs submit` submits as an
 #: `afterany` dependency of each job array. It only calls `sacct` and appends to
-#: a CSV file, so it needs very little.
+#: a CSV file, so it needs very little. These are upper bounds: if the BIDS App
+#: itself is configured to ask for less, the accounting job asks for that instead,
+#: so that a partition that accepts the user's jobs also accepts this one.
 SACCT_JOB_RESOURCES = {
     'hard_memory_limit': '2G',
     'number_of_cpus': 1,
     'hard_runtime_limit': '00:20:00',
 }
+
+_MEMORY_MULTIPLIERS = {'K': 1, 'M': 1024, 'G': 1024**2, 'T': 1024**3}
+
+
+def _parse_slurm_memory(value):
+    """Convert an sbatch `--mem` value into kilobytes.
+
+    Parameters
+    ----------
+    value : str or int
+        A value such as `'2G'`, `'4000M'` or `'512'`. As with sbatch, a value
+        without a suffix is in megabytes.
+
+    Returns
+    -------
+    float or None
+        The memory in kilobytes, or None if it could not be parsed.
+    """
+    value = str(value).strip()
+    if not value:
+        return None
+    multiplier = _MEMORY_MULTIPLIERS['M']  # sbatch's default unit
+    if value[-1].upper() in _MEMORY_MULTIPLIERS:
+        multiplier = _MEMORY_MULTIPLIERS[value[-1].upper()]
+        value = value[:-1]
+    try:
+        return float(value) * multiplier
+    except ValueError:
+        return None
+
+
+def _parse_slurm_time(value):
+    """Convert an sbatch `--time` value into seconds.
+
+    Parameters
+    ----------
+    value : str or int
+        Any of the formats sbatch accepts: `'minutes'`, `'minutes:seconds'`,
+        `'hours:minutes:seconds'`, `'days-hours'`, `'days-hours:minutes'` or
+        `'days-hours:minutes:seconds'`.
+
+    Returns
+    -------
+    float or None
+        The time in seconds, or None if it could not be parsed.
+    """
+    value = str(value).strip()
+    if not value:
+        return None
+
+    days = 0
+    if '-' in value:
+        # with a day part, what follows is always hours[:minutes[:seconds]]
+        days_str, _, value = value.partition('-')
+        try:
+            days = int(days_str)
+        except ValueError:
+            return None
+        units = [3600, 60, 1]
+    else:
+        # without one, a bare number is minutes, not seconds
+        units = {1: [60], 2: [60, 1], 3: [3600, 60, 1]}.get(value.count(':') + 1)
+        if units is None:
+            return None
+
+    parts = value.split(':')
+    if len(parts) > len(units):
+        return None
+    try:
+        parts = [float(part) for part in parts]
+    except ValueError:
+        return None
+    # pad on the right, so 'days-hours' means hours and not seconds:
+    seconds = days * 86400
+    for part, unit in zip(parts, units, strict=False):
+        seconds += part * unit
+    return seconds
+
+
+def _least_of(user_value, capped_value, parser):
+    """Pick whichever of two resource requests asks for less.
+
+    The original string is returned rather than a re-formatted one, so a value
+    that the user's cluster already accepts is passed through untouched.
+
+    Parameters
+    ----------
+    user_value : str or int or None
+        What the container's `cluster_resources` asks for, if anything.
+    capped_value : str or int
+        The most the accounting job should ask for.
+    parser : callable
+        `_parse_slurm_memory` or `_parse_slurm_time`.
+
+    Returns
+    -------
+    str or int
+        `user_value` if it is the smaller of the two, otherwise `capped_value`.
+    """
+    if user_value is None:
+        return capped_value
+    parsed_user = parser(user_value)
+    parsed_cap = parser(capped_value)
+    if parsed_user is None or parsed_cap is None:
+        return capped_value
+    return user_value if parsed_user < parsed_cap else capped_value
 
 
 def generate_sacct_submit_script(
@@ -215,6 +323,19 @@ def generate_sacct_submit_script(
         if key in ('interpreting_shell', 'customized_text')
     }
     sacct_resources_config.update(SACCT_JOB_RESOURCES)
+
+    # Never ask for more than the BIDS App itself asks for: if the user's jobs fit
+    # in their partition's limits, so must this one.
+    sacct_resources_config['hard_memory_limit'] = _least_of(
+        cluster_resources_config.get('hard_memory_limit'),
+        SACCT_JOB_RESOURCES['hard_memory_limit'],
+        _parse_slurm_memory,
+    )
+    sacct_resources_config['hard_runtime_limit'] = _least_of(
+        cluster_resources_config.get('hard_runtime_limit'),
+        SACCT_JOB_RESOURCES['hard_runtime_limit'],
+        _parse_slurm_time,
+    )
 
     interpreting_shell, scheduler_directives = generate_scheduler_directives(
         queue_system, sacct_resources_config

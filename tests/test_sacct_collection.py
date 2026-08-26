@@ -18,9 +18,14 @@ import yaml
 
 from babs import template_sacct_job as sacct_job
 from babs.container import Container
-from babs.generate_submit_script import generate_sacct_submit_script
-from babs.scheduler import submit_sacct_job
+from babs.generate_submit_script import (
+    _parse_slurm_memory,
+    _parse_slurm_time,
+    generate_sacct_submit_script,
+)
+from babs.scheduler import squeue_to_pandas, submit_sacct_job
 from babs.system import System
+from babs.utils import scheduler_status_columns
 
 CLUSTER_RESOURCES = {
     'interpreting_shell': '/bin/bash -l',
@@ -350,3 +355,103 @@ def test_submit_sacct_job_without_a_template(tmp_path):
     """A project created before this feature existed must still be submittable."""
     os.makedirs(op.join(tmp_path, 'code'))
     assert submit_sacct_job(str(tmp_path), 'slurm', 9911, 'job_submit.csv') is None
+
+
+@pytest.mark.parametrize(
+    ('value', 'expected'),
+    [
+        ('00:20:00', 1200),  # hours:minutes:seconds
+        ('10', 600),  # a bare number is minutes, not seconds
+        ('60:30', 3630),  # minutes:seconds
+        ('5-00', 5 * 86400),  # days-hours
+        ('5-00:30', 5 * 86400 + 1800),  # days-hours:minutes
+        ('2-03:04:05', 2 * 86400 + 3 * 3600 + 4 * 60 + 5),
+        ('', None),
+    ],
+)
+def test_parse_slurm_time(value, expected):
+    assert _parse_slurm_time(value) == expected
+
+
+@pytest.mark.parametrize(
+    ('value', 'expected'),
+    [
+        ('2G', 2 * 1024**2),
+        ('4000M', 4000 * 1024),
+        ('512', 512 * 1024),  # sbatch's default unit is megabytes
+        ('1T', 1024**3),
+        ('', None),
+    ],
+)
+def test_parse_slurm_memory(value, expected):
+    assert _parse_slurm_memory(value) == expected
+
+
+def _directives(script):
+    return [line for line in script.splitlines() if line.startswith('#SBATCH')]
+
+
+def test_accounting_job_never_asks_for_more_than_the_bids_app():
+    """A partition that accepts the user's jobs must accept the accounting job."""
+    # The BIDS App asks for far more than the accounting job needs, so the small
+    # defaults are used:
+    script = generate_sacct_submit_script(
+        queue_system='slurm',
+        cluster_resources_config=CLUSTER_RESOURCES,
+        script_preamble='source activate babs',
+        job_scratch_directory='/tmp',
+        sacct_python_script='/proj/analysis/code/sacct_job.py',
+        job_resources_path='/proj/analysis/code/job_resources.csv',
+    )
+    assert '#SBATCH --mem=2G' in _directives(script)
+    assert '#SBATCH --time=00:20:00' in _directives(script)
+
+    # The BIDS App asks for less than the defaults, so its values are used instead:
+    script = generate_sacct_submit_script(
+        queue_system='slurm',
+        cluster_resources_config={
+            'interpreting_shell': '/bin/bash',
+            'hard_memory_limit': '1G',
+            'hard_runtime_limit': '00:10:00',
+        },
+        script_preamble='source activate babs',
+        job_scratch_directory='/tmp',
+        sacct_python_script='/proj/analysis/code/sacct_job.py',
+        job_resources_path='/proj/analysis/code/job_resources.csv',
+    )
+    assert '#SBATCH --mem=1G' in _directives(script)
+    assert '#SBATCH --time=00:10:00' in _directives(script)
+
+
+def test_squeue_ignores_the_accounting_job(tmp_path):
+    """The accounting job is not an array task, so `squeue` parsing must not choke.
+
+    Once `babs submit` submits it, the user always has a non-array job in the
+    queue, which `squeue` reports as a bare '<job id>' with no '_<task id>'.
+    """
+    squeue_stdout = (
+        '9911_1|R|0:27|5-00:00:00|1|1|normal|sim\n'
+        '9911_2|PD|0:00|5-00:00:00|1|1|normal|sim\n'
+        # the accounting job, waiting on the array to finish:
+        '9912|PD|0:00|20:00|1|1|normal|sim_sacct\n'
+    )
+    completed = subprocess.CompletedProcess([], 0, stdout=squeue_stdout, stderr='')
+    with mock.patch.object(subprocess, 'run', return_value=completed):
+        with mock.patch('babs.scheduler.get_username', return_value='someone'):
+            df = squeue_to_pandas()
+
+    assert df['job_id'].tolist() == [9911, 9911]
+    assert df['task_id'].tolist() == [1, 2]
+
+
+def test_squeue_with_only_the_accounting_job_left(tmp_path):
+    """Once the array is done, only the accounting job may be left in the queue."""
+    completed = subprocess.CompletedProcess(
+        [], 0, stdout='9912|R|0:03|20:00|1|1|normal|sim_sacct\n', stderr=''
+    )
+    with mock.patch.object(subprocess, 'run', return_value=completed):
+        with mock.patch('babs.scheduler.get_username', return_value='someone'):
+            df = squeue_to_pandas()
+
+    assert df.empty
+    assert list(df.columns) == scheduler_status_columns

@@ -118,9 +118,20 @@ def squeue_to_pandas(job_id=None) -> pd.DataFrame:
     except Exception as e:
         raise RuntimeError(f'Failed to parse squeue output: {str(e)}\nOutput was: {result.stdout}')
 
-    # separate job_id into job_id and task_id
-    df['task_id'] = df['job_id'].str.split('_').str[1].astype(int)
-    df['job_id'] = df['job_id'].str.split('_').str[0].astype(int)
+    # separate job_id into job_id and task_id.
+    # squeue reports '<array job id>_<task id>' for the tasks of a job array but a
+    # bare '<job id>' for everything else the user has in the queue - including the
+    # accounting job that `babs submit` submits after each array. BABS only tracks
+    # array tasks, so drop the rows that are not one instead of failing on them.
+    # `job_id` is read as an int when no row has a '_' in it, so force it to str:
+    split_job_ids = df['job_id'].astype(str).str.split('_', n=1)
+    df['task_id'] = pd.to_numeric(split_job_ids.str[1], errors='coerce')
+    df['job_id'] = pd.to_numeric(split_job_ids.str[0], errors='coerce')
+    df = df[df['task_id'].notna() & df['job_id'].notna()].copy()
+    if df.empty:
+        return pd.DataFrame(columns=scheduler_status_columns)
+    df['task_id'] = df['task_id'].astype(int)
+    df['job_id'] = df['job_id'].astype(int)
 
     # Validate DataFrame structure
     if not all(col in df.columns for col in scheduler_status_columns):
