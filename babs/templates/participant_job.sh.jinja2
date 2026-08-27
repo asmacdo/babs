@@ -156,6 +156,16 @@ for CONTAINER_JOB in "${CONTAINER_IMAGE_PATHS[@]}"; do
     echo "ERROR: failed to create symlink ${CONTAINER_JOB}" >&2
     exit 1
   fi
+{% if zip_foldernames is none %}
+
+  # The image is a TRACKED (annexed) symlink, so swapping it leaves this clone
+  # dirty, and a non-explicit `datalad run` refuses to start on a dirty dataset.
+  # `--explicit` hides that today. Tell git to ignore the swapped symlink.
+  # TODO(poc): the swap may not be needed at all -- that is an open question, so
+  # this keeps the existing behaviour working rather than removing it.
+  ( cd "$(dirname "${CONTAINER_JOB}")" \
+      && git update-index --skip-worktree "$(basename "${CONTAINER_JOB}")" )
+{% endif %}
 done
 
 # datalad run:
