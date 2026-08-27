@@ -1,0 +1,5 @@
+{% for input_ds in input_datasets %}
+{% if input_ds['is_zipped'] %}
+rm -rf "{{ input_ds['unzipped_path_containing_subject_dirs'] }}"
+{% endif %}
+{% endfor %}

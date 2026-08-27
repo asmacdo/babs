@@ -77,6 +77,7 @@ def generate_bidsapp_runscript(
 
     # Get unzip commands for any zipped input datasets
     cmd_unzip_inputds = get_input_unzipping_cmds(input_datasets)
+    cmd_cleanup_inputds = get_input_cleanup_cmds(input_datasets)
 
     # Generate zip command
     cmd_zip = get_output_zipping_cmds(dict_zip_foldernames, processing_level)
@@ -98,6 +99,7 @@ def generate_bidsapp_runscript(
         container_name=container_name,
         flag_filterfile=processing_level == 'session' and 'prep' in container_name.lower(),
         cmd_unzip_inputds=cmd_unzip_inputds,
+        cmd_cleanup_inputds=cmd_cleanup_inputds,
         templateflow_home_on_disk=templateflow_home,
         templateflow_in_container='/SGLR/TEMPLATEFLOW_HOME',
         flag_fs_license=flag_fs_license,
@@ -467,6 +469,7 @@ def generate_pipeline_runscript(
 
     # Get unzip commands for any zipped input datasets
     cmd_unzip_inputds = get_input_unzipping_cmds(input_datasets)
+    cmd_cleanup_inputds = get_input_cleanup_cmds(input_datasets)
 
     # Render the template
     env = Environment(
@@ -486,6 +489,7 @@ def generate_pipeline_runscript(
         templateflow_home_on_disk=templateflow_home,
         templateflow_in_container='/SGLR/TEMPLATEFLOW_HOME',
         cmd_unzip_inputds=cmd_unzip_inputds,
+        cmd_cleanup_inputds=cmd_cleanup_inputds,
         cmd_zip=cmd_zip,
         PATH_FS_LICENSE_IN_CONTAINER=PATH_FS_LICENSE_IN_CONTAINER,
         OUTPUT_MAIN_FOLDERNAME=OUTPUT_MAIN_FOLDERNAME,
@@ -522,3 +526,37 @@ def get_input_unzipping_cmds(input_datasets):
     cmd = template.render(input_datasets=input_datasets)
 
     return cmd
+
+
+def get_input_cleanup_cmds(input_datasets):
+    """
+    Generate the commands that remove content extracted by `get_input_unzipping_cmds`.
+
+    A zipped input dataset is extracted into the job's clone before the BIDS App
+    runs; nothing removed it afterwards, so the extraction was left behind in the
+    input subdataset.
+
+    Parameters
+    ----------
+    input_datasets: list of dicts
+        each dict contains information of an input dataset
+
+    Returns:
+    ---------
+    cmd: str
+        commands to remove the extracted content of zipped input datasets
+    """
+    if not any(ds['is_zipped'] for ds in input_datasets):
+        return ''
+
+    env = Environment(
+        loader=PackageLoader('babs', 'templates'),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=False,
+        undefined=StrictUndefined,
+    )
+    env.filters['shell_safe'] = var_safe_name
+    template = env.get_template('cleanup_inputds.sh.jinja2')
+
+    return template.render(input_datasets=input_datasets)

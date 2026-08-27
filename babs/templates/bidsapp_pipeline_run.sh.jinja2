@@ -86,6 +86,10 @@ singularity run \
 
 {{ cmd_zip }}
 rm -rf {{ OUTPUT_MAIN_FOLDERNAME }} .git/tmp/wkdir
+{% if cmd_cleanup_inputds %}
+# Remove the content extracted from zipped input datasets
+{{ cmd_cleanup_inputds }}
+{% endif %}
 {% if steps_with_filter %}
 rm -f "${filterfile}"
 {% endif %}
