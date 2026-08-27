@@ -79,8 +79,13 @@ def generate_bidsapp_runscript(
     cmd_unzip_inputds = get_input_unzipping_cmds(input_datasets)
     cmd_cleanup_inputds = get_input_cleanup_cmds(input_datasets)
 
-    # Generate zip command
-    cmd_zip = get_output_zipping_cmds(dict_zip_foldernames, processing_level)
+    # `dict_zip_foldernames` is None when the config turns zipping off
+    # (`zip_outputs: false`), in which case there is nothing to zip and the app
+    # has written its outputs straight into the dataset root.
+    zip_outputs = dict_zip_foldernames is not None
+    cmd_zip = ''
+    if zip_outputs:
+        cmd_zip = get_output_zipping_cmds(dict_zip_foldernames, processing_level)
 
     # Render the template
     env = Environment(
@@ -109,6 +114,7 @@ def generate_bidsapp_runscript(
         bids_app_input_dir=bids_app_input_dir,
         bids_app_output_dir=bids_app_output_dir,
         bids_app_args=bids_app_args,
+        zip_outputs=zip_outputs,
         cmd_zip=cmd_zip,
         OUTPUT_MAIN_FOLDERNAME=OUTPUT_MAIN_FOLDERNAME,
         singularity_flags=singularity_args,

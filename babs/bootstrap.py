@@ -20,7 +20,9 @@ from babs.system import System, validate_queue
 from babs.utils import (
     get_datalad_version,
     resolve_container_image_paths,
+    run_script_name,
     validate_processing_level,
+    zipping_enabled,
 )
 
 
@@ -118,6 +120,11 @@ class BABSBootstrap(BABS):
         self.pipeline = babs_config.get('pipeline')
         # Store top-level zip_foldernames for pipeline use
         self.zip_foldernames = babs_config.get('zip_foldernames', {})
+        self.zip_outputs = zipping_enabled(babs_config)
+        if self.pipeline is not None and not self.zip_outputs:
+            # TODO(poc): pipeline mode has its own script generator and its own
+            # `zip_foldernames` handling; only the single-app path is wired up.
+            raise NotImplementedError('`zip_outputs: false` is not supported in pipeline mode.')
         datasets = babs_config.get('input_datasets')
         if not datasets:
             raise ValueError('No input datasets found in the container config file.')
@@ -286,6 +293,7 @@ class BABSBootstrap(BABS):
                     container_name=container_name,
                     container_ds=container_ds,
                     container_images=container_images,
+                    zip_outputs=self.zip_outputs,
                 )
             )
         self.datalad_save(
@@ -480,12 +488,16 @@ class BABSBootstrap(BABS):
             container_path_relToAnalysis=self.container_image_map[container_name],
         )
 
-        # Generate `<containerName>_zip.sh`: ----------------------------------
-        # which is a bash script of singularity run + zip
+        # Generate the run script: --------------------------------------------
+        # a bash script of singularity run (+ zip, when zipping is on)
         # in folder: `analysis/code`
-        print('\nGenerating a bash script for running container and zipping the outputs...')
-        print('This bash script will be named as `' + container_name + '_zip.sh`')
-        bash_path = op.join(self.analysis_path, 'code', container_name + '_zip.sh')
+        script_name = run_script_name(container_name, self.zip_outputs)
+        if self.zip_outputs:
+            print('\nGenerating a bash script for running container and zipping the outputs...')
+        else:
+            print('\nGenerating a bash script for running container...')
+        print('This bash script will be named as `' + script_name + '`')
+        bash_path = op.join(self.analysis_path, 'code', script_name)
         shared_group_mode = self.shared_group is not None
         container.generate_bash_run_bidsapp(
             bash_path,
@@ -494,7 +506,7 @@ class BABSBootstrap(BABS):
             shared_group_mode=shared_group_mode,
         )
         self.datalad_save(
-            path='code/' + container_name + '_zip.sh',
+            path='code/' + script_name,
             message='Generate script of running container',
         )
 

@@ -177,8 +177,13 @@ datalad run \
 {% if datalad_expand_inputs %}
 	--expand inputs \
 {% endif %}
-	--explicit \
+{# With zipping on, the job's only output is the zip file, which we can declare,
+   so `--explicit` keeps the save tight. With zipping off (`zip_foldernames` is
+   None) the app writes an output tree nobody should have to enumerate in
+   advance, and `--explicit` drops undeclared results SILENTLY -- so the run has
+   to capture everything the command changed. #}
 {% if zip_foldernames is not none %}
+	--explicit \
 {% for key, value in zip_foldernames.items() %}
 	-o "{% raw %}${subid}{% endraw %}{% if processing_level == 'session' %}_{% raw %}${sesid}{% endraw %}{% endif %}_{{ key }}-{{ value }}.zip" \
 {% endfor %}

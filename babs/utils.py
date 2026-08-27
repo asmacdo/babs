@@ -203,6 +203,29 @@ def replace_placeholder_from_config(value):
     return replaced
 
 
+def zipping_enabled(config):
+    """
+    Whether the BIDS App's outputs should be zipped.
+
+    Zipping is on unless the container configuration YAML sets
+    ``zip_outputs: false`` at the top level. With zipping off the app writes
+    straight into the dataset root and the `zip_foldernames` section, which
+    only ever described how to zip, is not needed.
+    """
+    return bool(config.get('zip_outputs', True))
+
+
+def run_script_name(container_name, zip_outputs=True):
+    """
+    Name of the generated script that runs the BIDS App, in `analysis/code`.
+
+    The script also compresses the outputs when zipping is on, hence `_zip`;
+    with zipping off it only runs the app, so the name should not say `zip`.
+    """
+    suffix = '_zip.sh' if zip_outputs else '_run.sh'
+    return container_name + suffix
+
+
 def app_output_settings_from_config(config):
     """
     This is to get information from `zip_foldernames` section
@@ -222,8 +245,9 @@ def app_output_settings_from_config(config):
 
     Returns:
     ---------
-    dict_zip_foldernames: dict
-        `config["zip_foldernames"]` w/ placeholder key/value pair removed.
+    dict_zip_foldernames: dict or None
+        `config["zip_foldernames"]` w/ placeholder key/value pair removed,
+        or None when zipping is turned off (`zip_outputs: false`).
     create_output_dir_for_single_zip: bool
         whether requested to create a sub-folder in `outputs`.
     bids_app_output_dir: str
@@ -235,6 +259,7 @@ def app_output_settings_from_config(config):
     In `zip_foldernames` section:
     1. No placeholder:                  outputs
     2. placeholder = true & 1 folder:   outputs/<foldername>
+    3. `zip_outputs: false`:            .  (the dataset root)
 
     Notes:
     ----------
@@ -248,6 +273,12 @@ def app_output_settings_from_config(config):
         OUTPUT_MAIN_FOLDERNAME,
         PLACEHOLDER_MK_SUB_OUTPUT_FOLDER_DEPRECATED,
     )
+
+    # With zipping off, the app writes into the dataset root, which is also the
+    # root of the derivative being produced. There is then no zip to name and no
+    # `outputs` folder to zip from, so `zip_foldernames` carries no information.
+    if not zipping_enabled(config):
+        return None, '.'
 
     # By default, the output folder is `outputs`:
     bids_app_output_dir = OUTPUT_MAIN_FOLDERNAME

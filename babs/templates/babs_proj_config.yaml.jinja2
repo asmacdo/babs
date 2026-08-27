@@ -1,5 +1,7 @@
 processing_level: '{{ processing_level }}'
 queue: '{{ queue }}'
+# whether the BIDS App's outputs were zipped by the jobs
+zip_outputs: {{ 'true' if zip_outputs else 'false' }}
 
 # input dataset's name(s)
 input_datasets:

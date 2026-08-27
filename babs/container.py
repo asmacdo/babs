@@ -8,7 +8,12 @@ from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from babs.generate_bidsapp_runscript import generate_bidsapp_runscript
 from babs.generate_submit_script import generate_submit_script, generate_test_submit_script
-from babs.utils import app_output_settings_from_config, container_image_path
+from babs.utils import (
+    app_output_settings_from_config,
+    container_image_path,
+    run_script_name,
+    zipping_enabled,
+)
 
 
 class Container:
@@ -185,6 +190,7 @@ class Container:
         if analysis_path is None:
             raise ValueError('analysis_path is required')
 
+        zip_outputs = zipping_enabled(self.config)
         script_content = generate_submit_script(
             queue_system=system.type,
             cluster_resources_config=self.config['cluster_resources'],
@@ -193,7 +199,10 @@ class Container:
             input_datasets=input_ds.as_records(),
             processing_level=processing_level,
             container_name=self.container_name,
-            zip_foldernames=self.config['zip_foldernames'],
+            # None turns off `--explicit` and the `-o` declarations in the job's
+            # `datalad run`, so an unzipped run captures everything the app wrote.
+            zip_foldernames=self.config['zip_foldernames'] if zip_outputs else None,
+            run_script_relpath='code/' + run_script_name(self.container_name, zip_outputs),
             container_images=[self.container_path_relToAnalysis],
             analysis_path=analysis_path,
         )

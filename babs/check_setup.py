@@ -16,6 +16,7 @@ from babs.utils import (
     get_immediate_subdirectories,
     print_versions_from_yaml,
     read_yaml,
+    run_script_name,
 )
 
 
@@ -154,7 +155,7 @@ class BABSCheckSetup(BABS):
         else:
             list_files_code = [
                 'babs_proj_config.yaml',
-                container_name + '_zip.sh',
+                run_script_name(container_name, babs_proj_config.get('zip_outputs', True)),
                 'participant_job.sh',
                 'submit_job_template.yaml',
             ]
