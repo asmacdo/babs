@@ -487,3 +487,57 @@ def test_shared_group_inits_analysis_and_rias(
     ).stdout.splitlines()
     assert str(Path(babs_bootstrap.analysis_path).resolve()) in safe_dirs
     assert str(output_ria_dir.resolve()) in safe_dirs
+
+
+def test_bootstrap_no_zip(
+    tmp_path_factory,
+    templateflow_home,
+    simbids_container_ds,
+    bids_data_singlesession,
+):
+    """`babs init` with `zip_outputs: false` bootstraps a project that does not zip."""
+
+    os.environ['TEMPLATEFLOW_HOME'] = str(templateflow_home)
+
+    project_base = tmp_path_factory.mktemp('project')
+    project_root = project_base / 'my_babs_project_no_zip'
+    container_config = update_yaml_for_run(
+        project_base,
+        get_config_simbids_path().name,
+        {'BIDS': bids_data_singlesession},
+    )
+    config = read_yaml(container_config)
+    config['zip_outputs'] = False
+    with open(container_config, 'w') as f:
+        yaml.safe_dump(config, f)
+
+    babs_bootstrap = BABSBootstrap(project_root=project_root)
+    babs_bootstrap.babs_bootstrap(
+        processing_level='subject',
+        queue='slurm',
+        container_ds=simbids_container_ds,
+        container_name='simbids-0-0-3',
+        container_config=container_config,
+        initial_inclusion_df=None,
+    )
+
+    code_dir = Path(babs_bootstrap.analysis_path) / 'code'
+
+    # One script, renamed: it runs the app and no longer zips.
+    run_script = code_dir / 'simbids-0-0-3_run.sh'
+    assert run_script.exists()
+    assert not (code_dir / 'simbids-0-0-3_zip.sh').exists()
+    run_script_content = run_script.read_text()
+    assert '7z a' not in run_script_content
+    assert 'outputs' not in run_script_content
+
+    # The project records that it does not zip, so `babs check-setup` knows
+    # which run script to expect.
+    assert read_yaml(str(code_dir / 'babs_proj_config.yaml'))['zip_outputs'] is False
+
+    participant_job = (code_dir / 'participant_job.sh').read_text()
+    assert '\n\t--explicit' not in participant_job
+    assert 'git update-index --skip-worktree' in participant_job
+    assert 'code/simbids-0-0-3_run.sh' in participant_job
+
+    BABSCheckSetup(project_root=project_root).babs_check_setup(submit_a_test_job=False)
