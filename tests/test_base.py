@@ -495,7 +495,7 @@ def test_bootstrap_no_zip(
     simbids_container_ds,
     bids_data_singlesession,
 ):
-    """`babs init` with `zip_outputs: false` bootstraps a project that does not zip."""
+    """`babs init` on a config with no `zip_foldernames` bootstraps a project that does not zip."""
 
     os.environ['TEMPLATEFLOW_HOME'] = str(templateflow_home)
 
@@ -507,7 +507,7 @@ def test_bootstrap_no_zip(
         {'BIDS': bids_data_singlesession},
     )
     config = read_yaml(container_config)
-    config['zip_outputs'] = False
+    config.pop('zip_foldernames', None)
     with open(container_config, 'w') as f:
         yaml.safe_dump(config, f)
 

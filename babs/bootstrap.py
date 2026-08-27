@@ -124,7 +124,10 @@ class BABSBootstrap(BABS):
         if self.pipeline is not None and not self.zip_outputs:
             # TODO(poc): pipeline mode has its own script generator and its own
             # `zip_foldernames` handling; only the single-app path is wired up.
-            raise NotImplementedError('`zip_outputs: false` is not supported in pipeline mode.')
+            raise NotImplementedError(
+                'Running without zipping (no `zip_foldernames` section) is not '
+                'supported in pipeline mode.'
+            )
         datasets = babs_config.get('input_datasets')
         if not datasets:
             raise ValueError('No input datasets found in the container config file.')

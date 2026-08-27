@@ -207,12 +207,15 @@ def zipping_enabled(config):
     """
     Whether the BIDS App's outputs should be zipped.
 
-    Zipping is on unless the container configuration YAML sets
-    ``zip_outputs: false`` at the top level. With zipping off the app writes
-    straight into the dataset root and the `zip_foldernames` section, which
-    only ever described how to zip, is not needed.
+    The `zip_foldernames` section is what describes how to zip, so its
+    presence is what asks for zipping. Without it there is nothing to zip
+    and the app writes straight into the dataset root.
+
+    Only an ABSENT section means no zipping. A section that is present but
+    empty is a half-written config, not a request to skip zipping, and is
+    still rejected downstream.
     """
-    return bool(config.get('zip_outputs', True))
+    return config.get('zip_foldernames') is not None
 
 
 def run_script_name(container_name, zip_outputs=True):
@@ -247,7 +250,7 @@ def app_output_settings_from_config(config):
     ---------
     dict_zip_foldernames: dict or None
         `config["zip_foldernames"]` w/ placeholder key/value pair removed,
-        or None when zipping is turned off (`zip_outputs: false`).
+        or None when the config has no `zip_foldernames` section.
     create_output_dir_for_single_zip: bool
         whether requested to create a sub-folder in `outputs`.
     bids_app_output_dir: str
@@ -259,7 +262,7 @@ def app_output_settings_from_config(config):
     In `zip_foldernames` section:
     1. No placeholder:                  outputs
     2. placeholder = true & 1 folder:   outputs/<foldername>
-    3. `zip_outputs: false`:            .  (the dataset root)
+    3. no `zip_foldernames` section:    .  (the dataset root)
 
     Notes:
     ----------
@@ -274,21 +277,15 @@ def app_output_settings_from_config(config):
         PLACEHOLDER_MK_SUB_OUTPUT_FOLDER_DEPRECATED,
     )
 
-    # With zipping off, the app writes into the dataset root, which is also the
-    # root of the derivative being produced. There is then no zip to name and no
-    # `outputs` folder to zip from, so `zip_foldernames` carries no information.
+    # No `zip_foldernames` section means nothing was asked to be zipped, so the
+    # app writes into the dataset root, which is also the root of the derivative
+    # being produced. There is then no zip to name and no `outputs` folder to
+    # zip from.
     if not zipping_enabled(config):
         return None, '.'
 
     # By default, the output folder is `outputs`:
     bids_app_output_dir = OUTPUT_MAIN_FOLDERNAME
-
-    # Sanity check: this section should exist:
-    if 'zip_foldernames' not in config:
-        raise ValueError(
-            'The `container_config` does not contain'
-            ' the section `zip_foldernames`. Please add this section!'
-        )
 
     # Check if placeholder to make a sub-folder in `outputs` folder
     create_output_dir_for_single_zip = config.get('all_results_in_one_zip', None)

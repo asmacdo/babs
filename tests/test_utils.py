@@ -132,20 +132,20 @@ def test_app_output_settings_from_config():
 
 
 def test_app_output_settings_from_config_zipping_off():
-    """With `zip_outputs: false` the app writes to the dataset root, nothing is zipped."""
-    no_zip_config = {'zip_outputs': False}
-
-    zip_foldernames, output_dir = app_output_settings_from_config(no_zip_config)
+    """No `zip_foldernames` section: the app writes to the dataset root, nothing is zipped."""
+    zip_foldernames, output_dir = app_output_settings_from_config({})
     assert zip_foldernames is None
     assert output_dir == '.'
 
-    # `zip_foldernames` is simply ignored when zipping is off:
-    with_leftover_section = {'zip_outputs': False, 'zip_foldernames': {'output1': 'v1.0.0'}}
-    assert app_output_settings_from_config(with_leftover_section) == (None, '.')
+    # Only ABSENCE means no zipping. A present-but-empty section is a
+    # half-written config and still raises (see the test above).
 
-    # ... but it is still required when zipping is on:
-    with pytest.raises(Exception, match='does not contain'):
-        app_output_settings_from_config({'zip_outputs': True})
+    # Present and non-empty is what asks for zipping:
+    zip_foldernames, output_dir = app_output_settings_from_config(
+        {'zip_foldernames': {'output1': 'v1.0.0'}}
+    )
+    assert zip_foldernames == {'output1': 'v1.0.0'}
+    assert output_dir == 'outputs'
 
 
 def test_run_script_name():

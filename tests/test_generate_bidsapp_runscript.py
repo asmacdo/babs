@@ -129,10 +129,10 @@ def test_get_input_cleanup_cmds():
 
 
 def test_generate_bidsapp_runscript_no_zip(tmp_path):
-    """With `zip_outputs: false` the app writes to the dataset root and nothing is zipped."""
+    """Without `zip_foldernames` the app writes to the dataset root and nothing is zipped."""
     config_path = NOTEBOOKS_DIR / 'eg_fmriprep-24-1-1_anatonly.yaml'
     config = read_yaml(config_path)
-    config['zip_outputs'] = False
+    config.pop('zip_foldernames', None)
     dict_zip_foldernames, bids_app_output_dir = app_output_settings_from_config(config)
     assert dict_zip_foldernames is None
 

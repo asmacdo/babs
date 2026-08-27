@@ -79,9 +79,9 @@ def generate_bidsapp_runscript(
     cmd_unzip_inputds = get_input_unzipping_cmds(input_datasets)
     cmd_cleanup_inputds = get_input_cleanup_cmds(input_datasets)
 
-    # `dict_zip_foldernames` is None when the config turns zipping off
-    # (`zip_outputs: false`), in which case there is nothing to zip and the app
-    # has written its outputs straight into the dataset root.
+    # `dict_zip_foldernames` is None when the config has no `zip_foldernames`
+    # section, in which case there is nothing to zip and the app has written its
+    # outputs straight into the dataset root.
     zip_outputs = dict_zip_foldernames is not None
     cmd_zip = ''
     if zip_outputs:

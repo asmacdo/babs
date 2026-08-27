@@ -106,7 +106,7 @@ def test_generate_submit_script_no_zip(tmp_path):
         input_datasets=input_datasets_prep,
         processing_level='subject',
         container_name='fmriprep-24-1-1',
-        zip_foldernames=None,  # i.e. `zip_outputs: false`
+        zip_foldernames=None,  # i.e. the config has no `zip_foldernames`
         run_script_relpath='code/fmriprep-24-1-1_run.sh',
         analysis_path='/tmp/babs_project/analysis',
     )
