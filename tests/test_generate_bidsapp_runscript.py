@@ -6,6 +6,7 @@ import pytest
 from babs.generate_bidsapp_runscript import (
     generate_bidsapp_runscript,
     generate_pipeline_runscript,
+    get_input_cleanup_cmds,
     get_input_unzipping_cmds,
 )
 from babs.utils import (
@@ -109,6 +110,58 @@ def test_get_input_unipping_cmds():
     qsirecon_anat_cmd = get_input_unzipping_cmds(input_datasets_qsirecon_ingressed_anat_zipped)
     assert len(qsirecon_anat_cmd) > 0
     assert len(qsirecon_anat_cmd) > len(qsirecon_cmd)
+
+
+def test_get_input_cleanup_cmds():
+    """Every extracted zipped input dataset is removed again."""
+    assert get_input_cleanup_cmds(input_datasets_prep) == ''
+
+    xcpd_cmd = get_input_cleanup_cmds(input_datasets_xcpd)
+    assert 'rm -rf "inputs/data/fmriprep"' in xcpd_cmd
+
+    # one `rm -rf` per zipped input dataset, and none for the unzipped one:
+    ingressed_cmd = get_input_cleanup_cmds(input_datasets_fmriprep_ingressed_anat)
+    assert ingressed_cmd.count('rm -rf') == 1
+    assert 'inputs/data/BIDS' not in ingressed_cmd
+
+    both_zipped_cmd = get_input_cleanup_cmds(input_datasets_qsirecon_ingressed_anat_zipped)
+    assert both_zipped_cmd.count('rm -rf') == 2
+
+
+def test_generate_bidsapp_runscript_no_zip(tmp_path):
+    """With `zip_outputs: false` the app writes to the dataset root and nothing is zipped."""
+    config_path = NOTEBOOKS_DIR / 'eg_fmriprep-24-1-1_anatonly.yaml'
+    config = read_yaml(config_path)
+    config['zip_outputs'] = False
+    dict_zip_foldernames, bids_app_output_dir = app_output_settings_from_config(config)
+    assert dict_zip_foldernames is None
+
+    script_content = generate_bidsapp_runscript(
+        input_datasets_prep,
+        'subject',
+        container_name='fmriprep-24-1-1',
+        relative_container_path='containers/.datalad/containers/fmriprep-24-1-1/image',
+        bids_app_output_dir=bids_app_output_dir,
+        dict_zip_foldernames=dict_zip_foldernames,
+        bids_app_args=config['bids_app_args'],
+        singularity_args=config['singularity_args'],
+        templateflow_home='/path/to/templateflow_home',
+    )
+
+    # The app's output directory is the dataset root, which is the derivative root:
+    assert '        "${PWD}" \\\n' in script_content
+    # Nothing is zipped, and there is no `outputs` folder to make or remove:
+    assert '7z a' not in script_content
+    assert 'outputs' not in script_content
+    # The working directory is still cleaned up:
+    assert 'rm -rf .git/tmp/wkdir' in script_content
+
+    out_fn = tmp_path / 'no_zip.sh'
+    out_fn.write_text(script_content)
+    passed, status = run_shellcheck(str(out_fn))
+    if not passed:
+        print(script_content)
+    assert passed, status
 
 
 @pytest.mark.parametrize(('input_datasets', 'config_file', 'processing_level'), testing_pairs)

@@ -24,6 +24,7 @@ from babs.utils import (
     read_yaml,
     replace_placeholder_from_config,
     resolve_container_image_paths,
+    run_script_name,
     update_submitted_job_ids,
     validate_processing_level,
 )
@@ -128,6 +129,30 @@ def test_app_output_settings_from_config():
 
     with pytest.raises(Exception, match='create more than one output folder'):
         app_output_settings_from_config(multiple_folders_config)
+
+
+def test_app_output_settings_from_config_zipping_off():
+    """With `zip_outputs: false` the app writes to the dataset root, nothing is zipped."""
+    no_zip_config = {'zip_outputs': False}
+
+    zip_foldernames, output_dir = app_output_settings_from_config(no_zip_config)
+    assert zip_foldernames is None
+    assert output_dir == '.'
+
+    # `zip_foldernames` is simply ignored when zipping is off:
+    with_leftover_section = {'zip_outputs': False, 'zip_foldernames': {'output1': 'v1.0.0'}}
+    assert app_output_settings_from_config(with_leftover_section) == (None, '.')
+
+    # ... but it is still required when zipping is on:
+    with pytest.raises(Exception, match='does not contain'):
+        app_output_settings_from_config({'zip_outputs': True})
+
+
+def test_run_script_name():
+    """The generated run script only says `zip` when it actually zips."""
+    assert run_script_name('fmriprep-24-1-1') == 'fmriprep-24-1-1_zip.sh'
+    assert run_script_name('fmriprep-24-1-1', zip_outputs=True) == 'fmriprep-24-1-1_zip.sh'
+    assert run_script_name('fmriprep-24-1-1', zip_outputs=False) == 'fmriprep-24-1-1_run.sh'
 
 
 def create_git_repo(tmp_path):

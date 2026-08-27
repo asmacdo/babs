@@ -94,6 +94,41 @@ testing_pairs = [
 ]
 
 
+def test_generate_submit_script_no_zip(tmp_path):
+    """With zipping off, the job's `datalad run` captures everything the app wrote."""
+    config_path = NOTEBOOKS_DIR / 'eg_fmriprep-24-1-1_anatonly.yaml'
+    config = read_yaml(config_path)
+    script_content = generate_submit_script(
+        queue_system='slurm',
+        cluster_resources_config=config['cluster_resources'],
+        script_preamble=config['script_preamble'],
+        job_scratch_directory=config['job_compute_space'],
+        input_datasets=input_datasets_prep,
+        processing_level='subject',
+        container_name='fmriprep-24-1-1',
+        zip_foldernames=None,  # i.e. `zip_outputs: false`
+        run_script_relpath='code/fmriprep-24-1-1_run.sh',
+        analysis_path='/tmp/babs_project/analysis',
+    )
+
+    # No `--explicit` (which drops undeclared results silently) and no `-o` zip:
+    assert '\n\t--explicit' not in script_content
+    assert '-o "' not in script_content
+    # The swapped container symlink must not leave the clone dirty, or a
+    # non-explicit `datalad run` refuses to start:
+    assert 'git update-index --skip-worktree' in script_content
+    # The run script no longer says `zip`:
+    assert 'code/fmriprep-24-1-1_run.sh' in script_content
+    assert '_zip.sh' not in script_content
+
+    out_fn = tmp_path / 'participant_job_no_zip.sh'
+    out_fn.write_text(script_content)
+    passed, status = run_shellcheck(str(out_fn))
+    if not passed:
+        print(script_content)
+    assert passed, status
+
+
 @pytest.mark.parametrize(('input_datasets', 'config_file', 'processing_level'), testing_pairs)
 def test_generate_submit_script(input_datasets, config_file, processing_level, tmp_path):
     """Test that the bidsapp runscript is generated correctly."""
