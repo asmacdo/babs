@@ -49,9 +49,11 @@ datalad save -m "add empty files" -d /test-temp/simbids
 
 # A templateflow-shaped dataset for the `templateflow:` section: one template
 # subdataset holding one annexed file, local so the jobs need no network.
+# simbids checks its default output space against the templates it sees, so the
+# template is named MNI152NLin6Asym; its file content is never read.
 datalad create -D "fake templateflow" /test-temp/templateflow-fake
-datalad create -d /test-temp/templateflow-fake /test-temp/templateflow-fake/tpl-Fake
-echo "not really a template" > /test-temp/templateflow-fake/tpl-Fake/tpl-Fake_res-01_T1w.nii.gz
+datalad create -d /test-temp/templateflow-fake /test-temp/templateflow-fake/tpl-MNI152NLin6Asym
+echo "not really a template" > /test-temp/templateflow-fake/tpl-MNI152NLin6Asym/tpl-MNI152NLin6Asym_res-01_T1w.nii.gz
 datalad save -r -m "add a fake template file" -d /test-temp/templateflow-fake
 
 cd /test-temp
@@ -106,7 +108,7 @@ if [ "${registered}" != "${expected}" ]; then
     exit 1
 fi
 if ! git -C output_ria/alias/data log --all --format=%B \
-        | grep -q 'sourcedata/templateflow/tpl-Fake/tpl-Fake_res-01_T1w.nii.gz'; then
+        | grep -q 'sourcedata/templateflow/tpl-MNI152NLin6Asym/tpl-MNI152NLin6Asym_res-01_T1w.nii.gz'; then
     echo "FAIL: no job run record lists the templateflow file as an input"
     exit 1
 fi
