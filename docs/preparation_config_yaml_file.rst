@@ -910,15 +910,21 @@ Finding the ``required`` list for an App
 ----------------------------------------
 
 The templates an App needs depend on its version and arguments. To find them, run the App once,
-on one subject, outside BABS, against a fresh writable clone of TemplateFlow with TemplateFlow's
-DataLad mode on, so every file the App asks for is fetched by ``datalad get``:
+on one subject, outside BABS, against a fresh writable clone of TemplateFlow with every template
+subdataset installed (git only, no content) and TemplateFlow's DataLad mode on. Every file the App
+asks for is then fetched while it runs; the files written after the start are the list:
 
 ..  code-block:: bash
 
     datalad clone https://github.com/templateflow/templateflow.git /tmp/tf
+    datalad get -n -r -d /tmp/tf
+    touch /tmp/tf/.start
     singularity run -B /tmp/tf:/tf --env TEMPLATEFLOW_HOME=/tf \
         --env TEMPLATEFLOW_USE_DATALAD=1 IMAGE APP_ARGS
-    datalad -C /tmp/tf foreach-dataset --subdatasets-only git annex find
+    cd /tmp/tf && find -L . -path '*/.git' -prune -o -type f -newer .start -print
 
 ``IMAGE`` and ``APP_ARGS`` are the App's image and its usual arguments.
 The files listed are the App's ``required`` list for those arguments.
+The templates must be installed first because TemplateFlow finds files by listing its directory,
+even in DataLad mode. Some files may arrive by direct S3 download rather than ``datalad get``;
+listing by time catches both.
