@@ -5,6 +5,7 @@ import pytest
 from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from babs.generate_submit_script import generate_submit_script
+from babs.templateflow import templateflow_from_config
 from babs.utils import (
     read_yaml,
     var_safe_name,
@@ -308,3 +309,47 @@ def test_find_single_zip_handles_regex_metachars_in_name(name, processing_level,
 
     assert result.returncode == 0, result.stderr
     assert zipname in result.stdout, f'zip not located:\nOUT:{result.stdout}\nERR:{result.stderr}'
+
+
+def test_generate_submit_script_templateflow(tmp_path):
+    """A `templateflow` section installs each template and lists each pattern as an input."""
+    config = read_yaml(NOTEBOOKS_DIR / 'eg_fmriprep-24-1-1_regular.yaml')
+    templateflow = templateflow_from_config(
+        {
+            'templateflow': {
+                'source': 'https://github.com/templateflow/templateflow.git',
+                'required': [
+                    'tpl-MNI152NLin2009cAsym/*_res-02_T1w.nii.gz',
+                    'tpl-OASIS30ANTs/*_res-01_T1w.nii.gz',
+                ],
+            }
+        }
+    )
+    kwargs = {
+        'queue_system': 'slurm',
+        'cluster_resources_config': config['cluster_resources'],
+        'script_preamble': config['script_preamble'],
+        'job_scratch_directory': config['job_compute_space'],
+        'input_datasets': input_datasets_prep,
+        'processing_level': 'subject',
+        'container_name': 'fmriprep',
+        'zip_foldernames': config['zip_foldernames'],
+        'analysis_path': '/tmp/babs_project/analysis',
+    }
+
+    script_content = generate_submit_script(templateflow=templateflow, **kwargs)
+    assert 'datalad get -n "sourcedata/templateflow/tpl-MNI152NLin2009cAsym"' in script_content
+    assert 'datalad get -n "sourcedata/templateflow/tpl-OASIS30ANTs"' in script_content
+    assert (
+        '-i "sourcedata/templateflow/tpl-MNI152NLin2009cAsym/*_res-02_T1w.nii.gz"'
+        in script_content
+    )
+    assert '-i "sourcedata/templateflow/tpl-OASIS30ANTs/*_res-01_T1w.nii.gz"' in script_content
+
+    out_fn = tmp_path / 'participant_job.sh'
+    out_fn.write_text(script_content)
+    passed, status = run_shellcheck(str(out_fn))
+    assert passed, status
+
+    # without the section, nothing templateflow-related is rendered
+    assert 'templateflow' not in generate_submit_script(**kwargs)

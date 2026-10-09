@@ -8,6 +8,7 @@ from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from babs.generate_bidsapp_runscript import generate_bidsapp_runscript
 from babs.generate_submit_script import generate_submit_script, generate_test_submit_script
+from babs.templateflow import templateflow_from_config
 from babs.utils import app_output_settings_from_config, container_image_path
 
 
@@ -196,6 +197,7 @@ class Container:
             zip_foldernames=self.config['zip_foldernames'],
             container_images=[self.container_path_relToAnalysis],
             analysis_path=analysis_path,
+            templateflow=templateflow_from_config(self.config),
         )
 
         with open(bash_path, 'w') as f:

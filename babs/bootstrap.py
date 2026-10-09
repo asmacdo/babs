@@ -597,6 +597,7 @@ class BABSBootstrap(BABS):
             container_images=container_images,
             datalad_run_message='pipeline',
             analysis_path=self.analysis_path,
+            templateflow=self.templateflow,
         )
 
         with open(bash_path, 'w') as f:
