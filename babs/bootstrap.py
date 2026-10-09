@@ -17,6 +17,7 @@ from babs.container import Container
 from babs.input_datasets import InputDatasets
 from babs.status import create_initial_statuses, write_job_status_csv
 from babs.system import System, validate_queue
+from babs.templateflow import templateflow_from_config
 from babs.utils import (
     get_datalad_version,
     resolve_container_image_paths,
@@ -122,6 +123,14 @@ class BABSBootstrap(BABS):
         if not datasets:
             raise ValueError('No input datasets found in the container config file.')
         self.input_datasets = InputDatasets(processing_level, datasets)
+        self.templateflow = templateflow_from_config(babs_config)
+        if self.templateflow is not None and os.getenv('TEMPLATEFLOW_HOME'):
+            raise ValueError(
+                'The container config has a `templateflow` section and the environment '
+                'sets TEMPLATEFLOW_HOME; use one. The section registers templateflow '
+                'in the project and binds it read-only; TEMPLATEFLOW_HOME binds a host '
+                'directory as-is.'
+            )
         self.queue = validate_queue(queue)
         system = System(self.queue)
 
