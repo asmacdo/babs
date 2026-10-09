@@ -31,6 +31,7 @@ Sections in the configuration YAML file
 * **required_files**: to only keep subjects (sessions) that have this list of required files in input dataset(s);
 * **common_paths**: extra, *non-inherited* files to stage for every job (BIDS metadata inheritance is automatic — see :ref:`bids-inheritance`); e.g. a shared ``sourcedata/NIDM/nidm.ttl``;
 * **alert_log_messages**: alert messages in the log files that may be helpful for debugging errors in failed jobs;
+* **templateflow**: register TemplateFlow in the project, pinned, and fetch only the templates each job needs;
 
 Among these sections, these sections are optional:
 
@@ -44,6 +45,7 @@ Among these sections, these sections are optional:
 * **common_paths**
 * **alert_log_messages**
 * **imported_files**
+* **templateflow**
 
 
 Example/prepopulated configuration YAML files
@@ -360,6 +362,10 @@ Advanced - Manual of writing section ``bids_app_args``
 
 * Will BABS handle `TemplateFlow <https://www.templateflow.org/>`_ environment variable?
 
+    * The ``templateflow`` section (see :ref:`templateflow-section`) is the tracked alternative:
+      TemplateFlow becomes a pinned subdataset of the project, and each job fetches and records
+      only the templates it needs. A config with that section refuses a ``$TEMPLATEFLOW_HOME``
+      in the environment. The rest of this answer describes ``$TEMPLATEFLOW_HOME``.
     * Yes, BABS assumes all BIDS Apps use TemplateFlow, and will handle its environment variable ``$TEMPLATEFLOW_HOME``
       *if* this environmental variable exists in the terminal environment where ``babs init`` will be run.
     * For BIDS Apps that truly depend on TemplateFlow (e.g., fMRIPrep, QSIPrep, XCP-D),
@@ -860,3 +866,59 @@ Notes:
   list ``dataset_description.json`` or other inherited sidecars here.
 
 
+.. _templateflow-section:
+
+Section ``templateflow``
+========================
+
+``templateflow`` is optional. It makes `TemplateFlow <https://www.templateflow.org/>`_ part of
+the BABS project instead of a host directory bound into every job:
+
+* At ``babs init``, TemplateFlow is cloned as a subdataset at ``analysis/sourcedata/templateflow``
+  (git content only), at ``version`` if given. The project records TemplateFlow's exact commit.
+* Each job installs the template subdatasets (``tpl-*``) that ``required`` names, and passes each
+  ``required`` pattern to ``datalad run`` as an input, so it fetches exactly those files and
+  records them in the job's run record.
+* The BIDS App sees the job's TemplateFlow **read-only** at ``$TEMPLATEFLOW_HOME``, with
+  ``TEMPLATEFLOW_AUTOUPDATE=0``. A template file the App needs but ``required`` left out then
+  fails the job, instead of being downloaded from S3 and used without a record.
+
+Example:
+
+..  code-block:: yaml
+
+    templateflow:
+        source: "https://github.com/templateflow/templateflow.git"
+        version: "<commit>"     # optional; unset keeps whatever ``source`` is at
+        required:
+            - "tpl-MNI152NLin2009cAsym/*_res-01_T1w.nii.gz"
+            - "tpl-MNI152NLin2009cAsym/*_res-01_desc-brain_mask.nii.gz"
+            - "tpl-OASIS30ANTs/*"
+
+Notes:
+
+* ``source`` is anything ``datalad clone`` accepts, e.g. a local clone shared by your projects.
+* Each ``required`` pattern is relative to the TemplateFlow root and starts with a literal template
+  directory (``tpl-<name>/``), so BABS knows which template subdataset to install. ``babs init``
+  refuses a template that is not a subdataset of TemplateFlow at that version.
+* Jobs need network access to fetch TemplateFlow and the required files (or a ``source`` they can
+  reach locally).
+* A template the App asks for that ``required`` names nowhere is simply absent: TemplateFlow
+  returns no file, and it is up to the App to fail on that (fMRIPrep does).
+
+Finding the ``required`` list for an App
+----------------------------------------
+
+The templates an App needs depend on its version and arguments. To find them, run the App once,
+on one subject, outside BABS, against a fresh writable clone of TemplateFlow with TemplateFlow's
+DataLad mode on, so every file the App asks for is fetched by ``datalad get``:
+
+..  code-block:: bash
+
+    datalad clone https://github.com/templateflow/templateflow.git /tmp/tf
+    singularity run -B /tmp/tf:/tf --env TEMPLATEFLOW_HOME=/tf \
+        --env TEMPLATEFLOW_USE_DATALAD=1 IMAGE APP_ARGS
+    datalad -C /tmp/tf foreach-dataset --subdatasets-only git annex find
+
+``IMAGE`` and ``APP_ARGS`` are the App's image and its usual arguments.
+The files listed are the App's ``required`` list for those arguments.
