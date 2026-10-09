@@ -24,6 +24,7 @@ pushd /test-temp
 rm -rf \
     simbids-container \
     simbids \
+    templateflow-fake \
     test_project \
     multiinput_test
 
@@ -45,6 +46,13 @@ apptainer exec \
 # Save it as a datalad dataset
 datalad create -D "empty BIDS dataset" --force /test-temp/simbids
 datalad save -m "add empty files" -d /test-temp/simbids
+
+# A templateflow-shaped dataset for the `templateflow:` section: one template
+# subdataset holding one annexed file, local so the jobs need no network.
+datalad create -D "fake templateflow" /test-temp/templateflow-fake
+datalad create -d /test-temp/templateflow-fake /test-temp/templateflow-fake/tpl-Fake
+echo "not really a template" > /test-temp/templateflow-fake/tpl-Fake/tpl-Fake_res-01_T1w.nii.gz
+datalad save -r -m "add a fake template file" -d /test-temp/templateflow-fake
 
 cd /test-temp
 babs init \
@@ -89,6 +97,20 @@ with open('analysis/code/job_status.csv') as f:
                 sys.exit(1)
 print('PASSED: job_status.csv is consistent')
 "
+
+echo "Checking templateflow is registered and recorded as a job input..."
+registered=$(git -C analysis rev-parse HEAD:sourcedata/templateflow)
+expected=$(git -C /test-temp/templateflow-fake rev-parse HEAD)
+if [ "${registered}" != "${expected}" ]; then
+    echo "FAIL: sourcedata/templateflow is at ${registered}, expected ${expected}"
+    exit 1
+fi
+if ! git -C output_ria/alias/data log --all --format=%B \
+        | grep -q 'sourcedata/templateflow/tpl-Fake/tpl-Fake_res-01_T1w.nii.gz'; then
+    echo "FAIL: no job run record lists the templateflow file as an input"
+    exit 1
+fi
+echo "PASSED: templateflow registered and recorded"
 echo "PASSED: e2e walkthrough successful!"
 
 popd
