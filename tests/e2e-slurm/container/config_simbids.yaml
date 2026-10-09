@@ -6,11 +6,6 @@ input_datasets:
         origin_url: "/test-temp/simbids"
         path_in_babs: inputs/data/BIDS
 
-templateflow:
-    url: "/test-temp/templateflow-fake"
-    required:
-        - "tpl-MNI152NLin6Asym/*_T1w.nii.gz"
-
 bids_app_args:
     --bids-app: "fmriprep"
     $SUBJECT_SELECTION_FLAG: "--participant-label"
