@@ -7,7 +7,7 @@ input_datasets:
         path_in_babs: inputs/data/BIDS
 
 templateflow:
-    source: "/test-temp/templateflow-fake"
+    url: "/test-temp/templateflow-fake"
     required:
         - "tpl-Fake/*_T1w.nii.gz"
 

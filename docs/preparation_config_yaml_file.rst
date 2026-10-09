@@ -364,8 +364,9 @@ Advanced - Manual of writing section ``bids_app_args``
 
     * The ``templateflow`` section (see :ref:`templateflow-section`) is the tracked alternative:
       TemplateFlow becomes a pinned subdataset of the project, and each job fetches and records
-      only the templates it needs. A config with that section refuses a ``$TEMPLATEFLOW_HOME``
-      in the environment. The rest of this answer describes ``$TEMPLATEFLOW_HOME``.
+      only the templates it needs. With that section, BABS does not bind ``$TEMPLATEFLOW_HOME``
+      (it can still serve as the section's ``clone_from``). The rest of this answer describes
+      ``$TEMPLATEFLOW_HOME`` without the section.
     * Yes, BABS assumes all BIDS Apps use TemplateFlow, and will handle its environment variable ``$TEMPLATEFLOW_HOME``
       *if* this environmental variable exists in the terminal environment where ``babs init`` will be run.
     * For BIDS Apps that truly depend on TemplateFlow (e.g., fMRIPrep, QSIPrep, XCP-D),
@@ -875,7 +876,8 @@ Section ``templateflow``
 the BABS project instead of a host directory bound into every job:
 
 * At ``babs init``, TemplateFlow is cloned as a subdataset at ``analysis/sourcedata/templateflow``
-  (git content only), at ``version`` if given. The project records TemplateFlow's exact commit.
+  (git content only), at ``version`` if given. The project records TemplateFlow's exact commit,
+  and ``url`` as where to get it.
 * Each job installs the template subdatasets (``tpl-*``) that ``required`` names, and passes each
   ``required`` pattern to ``datalad run`` as an input, so it fetches exactly those files and
   records them in the job's run record.
@@ -888,8 +890,9 @@ Example:
 ..  code-block:: yaml
 
     templateflow:
-        source: "https://github.com/templateflow/templateflow.git"
-        version: "<commit>"     # optional; unset keeps whatever ``source`` is at
+        url: "https://github.com/templateflow/templateflow.git"
+        clone_from: "$TEMPLATEFLOW_HOME"   # optional local copy, see below
+        version: "<commit>"                # optional; unset keeps whatever the clone is at
         required:
             - "tpl-MNI152NLin2009cAsym/*_res-01_T1w.nii.gz"
             - "tpl-MNI152NLin2009cAsym/*_res-01_desc-brain_mask.nii.gz"
@@ -897,7 +900,12 @@ Example:
 
 Notes:
 
-* ``source`` is anything ``datalad clone`` accepts, e.g. a local clone shared by your projects.
+* ``url`` is TemplateFlow's public location, recorded in the project's ``.gitmodules``: jobs install
+  TemplateFlow from it, and so does anyone rerunning the project elsewhere.
+* ``clone_from`` is optional: a local copy ``babs init`` clones from instead of ``url``, to save the
+  download. It is a path, or exactly ``$TEMPLATEFLOW_HOME``, which BABS replaces with that
+  environment variable's value at ``babs init`` (no other variables are expanded). Whatever it is,
+  the project records ``url``, so it must hold the same history as ``url``.
 * Each ``required`` pattern is relative to the TemplateFlow root and starts with a literal template
   directory (``tpl-<name>/``), so BABS knows which template subdataset to install. ``babs init``
   refuses a template that is not a subdataset of TemplateFlow at that version.

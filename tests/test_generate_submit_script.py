@@ -317,7 +317,7 @@ def test_generate_submit_script_templateflow(tmp_path):
     templateflow = templateflow_from_config(
         {
             'templateflow': {
-                'source': 'https://github.com/templateflow/templateflow.git',
+                'url': 'https://github.com/templateflow/templateflow.git',
                 'required': [
                     'tpl-MNI152NLin2009cAsym/*_res-02_T1w.nii.gz',
                     'tpl-OASIS30ANTs/*_res-01_T1w.nii.gz',

@@ -124,13 +124,6 @@ class BABSBootstrap(BABS):
             raise ValueError('No input datasets found in the container config file.')
         self.input_datasets = InputDatasets(processing_level, datasets)
         self.templateflow = templateflow_from_config(babs_config)
-        if self.templateflow is not None and os.getenv('TEMPLATEFLOW_HOME'):
-            raise ValueError(
-                'The container config has a `templateflow` section and the environment '
-                'sets TEMPLATEFLOW_HOME; use one. The section registers templateflow '
-                'in the project and binds it read-only; TEMPLATEFLOW_HOME binds a host '
-                'directory as-is.'
-            )
         self.queue = validate_queue(queue)
         system = System(self.queue)
 
@@ -549,7 +542,8 @@ class BABSBootstrap(BABS):
 
         # Generate pipeline run script using unified pipeline generator
         pipeline_script_path = op.join(self.analysis_path, 'code', 'pipeline_zip.sh')
-        templateflow_home = os.getenv('TEMPLATEFLOW_HOME')
+        # With a `templateflow` section, the subdataset is bound instead of TEMPLATEFLOW_HOME.
+        templateflow_home = None if self.templateflow else os.getenv('TEMPLATEFLOW_HOME')
 
         pipeline_script_content = generate_pipeline_runscript(
             pipeline_config=self.pipeline,
@@ -636,9 +630,29 @@ class BABSBootstrap(BABS):
         and the `required` files fetched, by each job.
         """
         tf = self.templateflow
-        print(f'\nRegistering templateflow from {tf.source} at {TEMPLATEFLOW_PATH_IN_BABS}...')
+        clone_from = tf.resolve_clone_from()
+        print(f'\nRegistering templateflow from {clone_from} at {TEMPLATEFLOW_PATH_IN_BABS}...')
         tf_path = op.join(self.analysis_path, TEMPLATEFLOW_PATH_IN_BABS)
-        dlapi.clone(dataset=self.analysis_path, source=tf.source, path=tf_path)
+        dlapi.clone(dataset=self.analysis_path, source=clone_from, path=tf_path)
+
+        # Record the public URL, not a local copy, so jobs and reruns elsewhere install from it.
+        if clone_from != tf.url:
+            subprocess.run(
+                [
+                    'git',
+                    'config',
+                    '--file',
+                    '.gitmodules',
+                    f'submodule.{TEMPLATEFLOW_PATH_IN_BABS}.url',
+                    tf.url,
+                ],
+                cwd=self.analysis_path,
+                check=True,
+            )
+            self.datalad_save(
+                path='.gitmodules',
+                message=f'Record templateflow at its public URL {tf.url}',
+            )
 
         if tf.version is not None:
             proc = subprocess.run(
@@ -651,7 +665,7 @@ class BABSBootstrap(BABS):
             if proc.returncode != 0:
                 raise ValueError(
                     f'`templateflow.version` {tf.version!r} could not be checked out '
-                    f'from {tf.source}:\n{proc.stderr}'
+                    f'from {clone_from}:\n{proc.stderr}'
                 )
             self.datalad_save(
                 path=TEMPLATEFLOW_PATH_IN_BABS,

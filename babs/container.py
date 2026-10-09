@@ -131,7 +131,9 @@ class Container:
             os.makedirs(bash_dir)
 
         input_datasets = input_ds.as_records()
-        templateflow_home = os.getenv('TEMPLATEFLOW_HOME')
+        templateflow = templateflow_from_config(self.config)
+        # With a `templateflow` section, the subdataset is bound instead of TEMPLATEFLOW_HOME.
+        templateflow_home = None if templateflow else os.getenv('TEMPLATEFLOW_HOME')
 
         # What should the outputs look like?
         dict_zip_foldernames, bids_app_output_dir = app_output_settings_from_config(self.config)
@@ -146,9 +148,7 @@ class Container:
             bids_app_args=self.config.get('bids_app_args', None),
             singularity_args=self.config.get('singularity_args', []),
             templateflow_home=templateflow_home,
-            templateflow_in_project=(
-                TEMPLATEFLOW_PATH_IN_BABS if templateflow_from_config(self.config) else None
-            ),
+            templateflow_in_project=TEMPLATEFLOW_PATH_IN_BABS if templateflow else None,
         )
 
         with open(bash_path, 'w') as f:

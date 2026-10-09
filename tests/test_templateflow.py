@@ -11,7 +11,7 @@ from babs.templateflow import (
     templateflow_from_config,
 )
 
-SOURCE = 'https://github.com/templateflow/templateflow.git'
+URL = 'https://github.com/templateflow/templateflow.git'
 
 
 def _config(**section):
@@ -24,10 +24,11 @@ def test_absent_section_is_none():
 
 def test_minimal_section():
     tf = templateflow_from_config(
-        _config(source=SOURCE, required=['tpl-OASIS30ANTs/tpl-OASIS30ANTs_res-01_T1w.nii.gz'])
+        _config(url=URL, required=['tpl-OASIS30ANTs/tpl-OASIS30ANTs_res-01_T1w.nii.gz'])
     )
     assert tf == TemplateflowConfig(
-        source=SOURCE,
+        url=URL,
+        clone_from=None,
         version=None,
         required=['tpl-OASIS30ANTs/tpl-OASIS30ANTs_res-01_T1w.nii.gz'],
     )
@@ -36,7 +37,7 @@ def test_minimal_section():
 def test_templates_are_the_distinct_first_components():
     tf = templateflow_from_config(
         _config(
-            source=SOURCE,
+            url=URL,
             version='abc123',
             required=[
                 'tpl-MNI152NLin2009cAsym/*_res-02_T1w.nii.gz',
@@ -52,23 +53,41 @@ def test_templates_are_the_distinct_first_components():
 @pytest.mark.parametrize(
     ('section', 'message'),
     [
-        ({'source': SOURCE, 'required': ['tpl-X/a'], 'versoin': 'x'}, 'Unknown key'),
-        ({'required': ['tpl-X/a']}, 'source'),
-        ({'source': '', 'required': ['tpl-X/a']}, 'source'),
-        ({'source': SOURCE, 'version': '', 'required': ['tpl-X/a']}, 'version'),
-        ({'source': SOURCE}, 'required'),
-        ({'source': SOURCE, 'required': []}, 'required'),
-        ({'source': SOURCE, 'required': 'tpl-X/a'}, 'required'),
-        ({'source': SOURCE, 'required': ['/abs/tpl-X/a']}, 'relative'),
-        ({'source': SOURCE, 'required': ['tpl-X/../tpl-Y/a']}, r"'\.\.'"),
-        ({'source': SOURCE, 'required': ['tpl-*/a']}, 'literal template'),
-        ({'source': SOURCE, 'required': ['sub-01/a']}, 'literal template'),
-        ({'source': SOURCE, 'required': ['']}, 'non-empty'),
+        ({'url': URL, 'required': ['tpl-X/a'], 'versoin': 'x'}, 'Unknown key'),
+        ({'required': ['tpl-X/a']}, 'url'),
+        ({'url': '', 'required': ['tpl-X/a']}, 'url'),
+        ({'url': URL, 'clone_from': '', 'required': ['tpl-X/a']}, 'clone_from'),
+        ({'url': URL, 'clone_from': '$HOME/tf', 'required': ['tpl-X/a']}, 'only the placeholder'),
+        ({'url': URL, 'clone_from': '${TEMPLATEFLOW_HOME}', 'required': ['tpl-X/a']}, 'only'),
+        ({'url': URL, 'version': '', 'required': ['tpl-X/a']}, 'version'),
+        ({'url': URL}, 'required'),
+        ({'url': URL, 'required': []}, 'required'),
+        ({'url': URL, 'required': 'tpl-X/a'}, 'required'),
+        ({'url': URL, 'required': ['/abs/tpl-X/a']}, 'relative'),
+        ({'url': URL, 'required': ['tpl-X/../tpl-Y/a']}, r"'\.\.'"),
+        ({'url': URL, 'required': ['tpl-*/a']}, 'literal template'),
+        ({'url': URL, 'required': ['sub-01/a']}, 'literal template'),
+        ({'url': URL, 'required': ['']}, 'non-empty'),
     ],
 )
 def test_malformed_section_is_refused(section, message):
     with pytest.raises(ValueError, match=message):
         templateflow_from_config(_config(**section))
+
+
+def test_clone_from_resolution(monkeypatch):
+    def tf(clone_from):
+        return templateflow_from_config(
+            _config(url=URL, clone_from=clone_from, required=['tpl-X/a'])
+        )
+
+    assert tf(None).resolve_clone_from() == URL
+    assert tf('/site/templateflow').resolve_clone_from() == '/site/templateflow'
+    monkeypatch.setenv('TEMPLATEFLOW_HOME', '/site/tf-home')
+    assert tf('$TEMPLATEFLOW_HOME').resolve_clone_from() == '/site/tf-home'
+    monkeypatch.delenv('TEMPLATEFLOW_HOME')
+    with pytest.raises(ValueError, match='not set'):
+        tf('$TEMPLATEFLOW_HOME').resolve_clone_from()
 
 
 def test_section_must_be_a_mapping():
@@ -110,9 +129,9 @@ def _registered_commit(bs):
     return _git(bs.analysis_path, 'rev-parse', f'HEAD:{TEMPLATEFLOW_PATH_IN_BABS}')
 
 
-def test_register_keeps_source_version_when_unpinned(tmp_path, fake_templateflow):
+def test_register_keeps_cloned_version_when_unpinned(tmp_path, fake_templateflow):
     tf_path, _ = fake_templateflow
-    bs = _bootstrap(tmp_path, source=str(tf_path), required=['tpl-Foo/*'])
+    bs = _bootstrap(tmp_path, url=str(tf_path), required=['tpl-Foo/*'])
     bs._register_templateflow()
     assert _registered_commit(bs) == _git(tf_path, 'rev-parse', 'HEAD')
     # only templateflow itself is installed; the template subdataset waits for the job
@@ -122,7 +141,7 @@ def test_register_keeps_source_version_when_unpinned(tmp_path, fake_templateflow
 
 def test_register_pins_version(tmp_path, fake_templateflow):
     tf_path, first = fake_templateflow
-    bs = _bootstrap(tmp_path, source=str(tf_path), version=first, required=['tpl-Foo/*'])
+    bs = _bootstrap(tmp_path, url=str(tf_path), version=first, required=['tpl-Foo/*'])
     bs._register_templateflow()
     assert _registered_commit(bs) == first
     assert _git(bs.analysis_path, 'status', '--porcelain') == ''
@@ -130,13 +149,36 @@ def test_register_pins_version(tmp_path, fake_templateflow):
 
 def test_register_refuses_unknown_version(tmp_path, fake_templateflow):
     tf_path, _ = fake_templateflow
-    bs = _bootstrap(tmp_path, source=str(tf_path), version='no-such-ref', required=['tpl-Foo/*'])
+    bs = _bootstrap(tmp_path, url=str(tf_path), version='no-such-ref', required=['tpl-Foo/*'])
     with pytest.raises(ValueError, match='could not be checked out'):
         bs._register_templateflow()
 
 
 def test_register_refuses_unknown_template(tmp_path, fake_templateflow):
     tf_path, _ = fake_templateflow
-    bs = _bootstrap(tmp_path, source=str(tf_path), required=['tpl-Bar/*'])
+    bs = _bootstrap(tmp_path, url=str(tf_path), required=['tpl-Bar/*'])
     with pytest.raises(ValueError, match='tpl-Bar, which is not a template subdataset'):
         bs._register_templateflow()
+
+
+def test_register_clones_from_local_copy_records_url(tmp_path, fake_templateflow, monkeypatch):
+    """`clone_from` is only where init clones from; `.gitmodules` records `url`."""
+    tf_path, _ = fake_templateflow
+    monkeypatch.setenv('TEMPLATEFLOW_HOME', str(tf_path))
+    bs = _bootstrap(
+        tmp_path,
+        url='https://example.org/templateflow.git',
+        clone_from='$TEMPLATEFLOW_HOME',
+        required=['tpl-Foo/*'],
+    )
+    bs._register_templateflow()
+    assert _registered_commit(bs) == _git(tf_path, 'rev-parse', 'HEAD')
+    recorded = _git(
+        bs.analysis_path,
+        'config',
+        '--file',
+        '.gitmodules',
+        f'submodule.{TEMPLATEFLOW_PATH_IN_BABS}.url',
+    )
+    assert recorded == 'https://example.org/templateflow.git'
+    assert _git(bs.analysis_path, 'status', '--porcelain') == ''
