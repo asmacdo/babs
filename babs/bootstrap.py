@@ -17,7 +17,7 @@ from babs.container import Container
 from babs.input_datasets import InputDatasets
 from babs.status import create_initial_statuses, write_job_status_csv
 from babs.system import System, validate_queue
-from babs.templateflow import templateflow_from_config
+from babs.templateflow import TEMPLATEFLOW_PATH_IN_BABS, templateflow_from_config
 from babs.utils import (
     get_datalad_version,
     resolve_container_image_paths,
@@ -234,6 +234,9 @@ class BABSBootstrap(BABS):
 
         # Perform checks on the inputs:
         self.input_datasets.validate_input_contents()
+
+        if self.templateflow is not None:
+            self._register_templateflow()
 
         # directly add container as sub-dataset of `analysis`:
         print('\nAdding the container as a sub-dataset of `analysis` dataset...')
@@ -623,6 +626,51 @@ class BABSBootstrap(BABS):
                 system,
                 shared_group_mode=(self.shared_group is not None),
             )
+
+    def _register_templateflow(self):
+        """Register templateflow as a subdataset of `analysis`, at the configured version.
+
+        Only git content is cloned: the `tpl-*` template subdatasets are installed,
+        and the `required` files fetched, by each job.
+        """
+        tf = self.templateflow
+        print(f'\nRegistering templateflow from {tf.source} at {TEMPLATEFLOW_PATH_IN_BABS}...')
+        tf_path = op.join(self.analysis_path, TEMPLATEFLOW_PATH_IN_BABS)
+        dlapi.clone(dataset=self.analysis_path, source=tf.source, path=tf_path)
+
+        if tf.version is not None:
+            proc = subprocess.run(
+                ['git', 'checkout', '--quiet', '--detach', tf.version],
+                cwd=tf_path,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                raise ValueError(
+                    f'`templateflow.version` {tf.version!r} could not be checked out '
+                    f'from {tf.source}:\n{proc.stderr}'
+                )
+            self.datalad_save(
+                path=TEMPLATEFLOW_PATH_IN_BABS,
+                message=f'Pin templateflow at {tf.version}',
+            )
+
+        # Every template a `required` pattern names must be a subdataset at this version,
+        # so a typo fails here rather than in every job.
+        for template in tf.templates:
+            entry = subprocess.run(
+                ['git', 'ls-tree', 'HEAD', '--', template],
+                cwd=tf_path,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+            if not entry.startswith('160000 commit'):
+                raise ValueError(
+                    f'`templateflow.required` names {template}, which is not a template '
+                    f'subdataset of templateflow at {tf.version or "its current version"}.'
+                )
 
     def _init_import_files(self, file_list):
         """
