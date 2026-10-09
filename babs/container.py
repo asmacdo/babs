@@ -8,7 +8,7 @@ from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from babs.generate_bidsapp_runscript import generate_bidsapp_runscript
 from babs.generate_submit_script import generate_submit_script, generate_test_submit_script
-from babs.templateflow import templateflow_from_config
+from babs.templateflow import TEMPLATEFLOW_PATH_IN_BABS, templateflow_from_config
 from babs.utils import app_output_settings_from_config, container_image_path
 
 
@@ -146,6 +146,9 @@ class Container:
             bids_app_args=self.config.get('bids_app_args', None),
             singularity_args=self.config.get('singularity_args', []),
             templateflow_home=templateflow_home,
+            templateflow_in_project=(
+                TEMPLATEFLOW_PATH_IN_BABS if templateflow_from_config(self.config) else None
+            ),
         )
 
         with open(bash_path, 'w') as f:

@@ -556,6 +556,7 @@ class BABSBootstrap(BABS):
             processing_level=self.processing_level,
             input_datasets=self.input_datasets,
             templateflow_home=templateflow_home,
+            templateflow_in_project=TEMPLATEFLOW_PATH_IN_BABS if self.templateflow else None,
             final_zip_foldernames=final_zip_foldernames,
             container_image_paths=self.container_image_map,
         )
