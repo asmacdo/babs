@@ -70,6 +70,9 @@ fi
 git sparse-checkout set \
   code \
   containers \
+{% if templateflow %}
+  {{ templateflow_path }} \
+{% endif %}
 {% for input_dataset in input_datasets %}
   {{ input_dataset['path_in_babs'] }}{% if not loop.last %} \
 {% endif %}

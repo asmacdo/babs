@@ -338,6 +338,8 @@ def test_generate_submit_script_templateflow(tmp_path):
     }
 
     script_content = generate_submit_script(templateflow=templateflow, **kwargs)
+    # the job's clone is sparse: templateflow must be checked out to be installable
+    assert '  containers \\\n  sourcedata/templateflow \\\n' in script_content
     assert 'datalad get -n "sourcedata/templateflow/tpl-MNI152NLin2009cAsym"' in script_content
     assert 'datalad get -n "sourcedata/templateflow/tpl-OASIS30ANTs"' in script_content
     assert (
